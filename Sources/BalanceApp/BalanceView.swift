@@ -10,6 +10,47 @@ extension Color {
     static let softButtonGray = Color(red: 241/255, green: 241/255, blue: 242/255)    // #F1F1F2
 }
 
+// MARK: - TikTok Coin Şekli (SVG'den SwiftUI Path'e uyarlanmıştır)
+struct TikTokCoinShape: View {
+    var body: some View {
+        ZStack {
+            // Dış Çemberler ve Katmanlar (Gradient / Renk geçişleri yerine SwiftUI shape path'leri)
+            Circle()
+                .fill(Color(red: 76/255, green: 38/255, blue: 0/255)) // #FFB84D arka plan tonu
+            
+            Circle()
+                .inset(by: 1)
+                .fill(Color(red: 255/255, green: 222/255, blue: 85/255)) // #FFDE55
+            
+            Circle()
+                .inset(by: 5)
+                .fill(Color(red: 247/255, green: 163/255, blue: 0/255)) // #F7A300
+            
+            Circle()
+                .inset(by: 5.2)
+                .fill(Color(red: 240/255, green: 146/255, blue: 7/255)) // #F09207
+            
+            // TikTok Nota İşareti / Simgesi (SVG Path verisi tabanlı)
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                
+                Path { path in
+                    path.move(to: CGPoint(x: w * 0.715, y: w * 0.378))
+                    path.addCurve(to: CGPoint(x: w * 0.593, y: w * 0.258), control1: CGPoint(x: w * 0.715, y: w * 0.378), control2: CGPoint(x: w * 0.671, y: w * 0.27))
+                    path.addLine(to: CGPoint(x: w * 0.512, y: w * 0.258))
+                    path.addLine(to: CGPoint(x: w * 0.512, y: w * 0.584))
+                    path.addCurve(to: CGPoint(x: w * 0.438, y: w * 0.657), control1: CGPoint(x: w * 0.512, y: w * 0.624), control2: CGPoint(x: w * 0.478, y: w * 0.657))
+                    path.addArc(center: CGPoint(x: w * 0.402, y: w * 0.622), radius: w * 0.073, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false)
+                    path.addArc(center: CGPoint(x: w * 0.575, y: w * 0.45), radius: w * 0.12, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: false)
+                }
+                .fill(Color.white)
+            }
+            .padding(8)
+        }
+    }
+}
+
 // MARK: - Ana Ekran
 struct BalanceView: View {
     @State private var balance: Double = 0.10
@@ -130,14 +171,10 @@ struct BalanceView: View {
 
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 247/255, green: 168/255, blue: 15/255))
-                            .frame(width: 18, height: 18)
-                        Text("¢")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
+                    // SVG tabanlı TikTok Coin simgesi ile değiştirildi
+                    TikTokCoinShape()
+                        .frame(width: 20, height: 20)
+                    
                     Text("Coins")
                         .foregroundStyle(.gray)
                     Text("\(coins)")
