@@ -1,14 +1,36 @@
 import SwiftUI
+import UserNotifications
 
-// MARK: - Renkler
+// MARK: - Colors
 extension Color {
-    static let brandAccent = Color(red: 254/255, green: 44/255, blue: 85/255) // #FE2C55
-    static let gridBackground = Color(red: 249/255, green: 250/255, blue: 251/255)
-    static let softButtonGray = Color(red: 241/255, green: 241/255, blue: 242/255)
-    static let cardBackground = Color(red: 250/255, green: 246/255, blue: 247/255)
+    static let brandAccent = Color(red: 254/255, green: 44/255, blue: 85/255)
+    static let adaptiveCard = Color(.secondarySystemBackground)
+    static let adaptiveBackground = Color(.systemBackground)
 }
 
-// MARK: - Özgün Coin İkonu
+// MARK: - Notifications
+final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
+    }
+}
+
+func sendExchangeNotification(amount: Int, username: String) {
+    let content = UNMutableNotificationContent()
+    content.title = "Exchange completed"
+    content.body = "You exchanged \(amount) credits with @\(username)"
+    content.sound = .default
+
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+    UNUserNotificationCenter.current().add(request)
+}
+
+// MARK: - Coin Icon
 struct CoinIcon: View {
     var size: CGFloat = 18
 
@@ -46,19 +68,20 @@ struct CoinIcon: View {
     }
 }
 
-// MARK: - Ana Ekran
+// MARK: - Main Screen
 struct BalanceView: View {
+    @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = false
+
     @State private var balance: Double = 0.10
     @State private var coins: Int = 0
     @State private var rewardsReceived: Double = 87598.45
     @State private var showSettings: Bool = false
     @State private var showExchangeSheet: Bool = false
-    @State private var showToast: Bool = false
-    @State private var toastText: String = ""
+    @State private var notificationDelegate = NotificationDelegate()
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            Color.adaptiveBackground.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 header
@@ -73,64 +96,42 @@ struct BalanceView: View {
                     .padding(.horizontal, 16)
                 }
             }
-
-            if showToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.white)
-                        Text(toastText)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.black.opacity(0.85))
-                    .clipShape(Capsule())
-                    .padding(.bottom, 40)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(1)
-            }
+        }
+        .preferredColorScheme(prefersDarkMode ? .dark : .light)
+        .onAppear {
+            UNUserNotificationCenter.current().delegate = notificationDelegate
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
                 balance: $balance,
                 coins: $coins,
-                rewardsReceived: $rewardsReceived
+                rewardsReceived: $rewardsReceived,
+                prefersDarkMode: $prefersDarkMode
             )
+            .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
         .sheet(isPresented: $showExchangeSheet) {
             ExchangeView(availableCoins: coins) { amount, username in
                 coins -= amount
-                showExchangeSheet = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    toastText = "Exchanged \(amount) coins to @\(username)"
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showToast = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                        withAnimation { showToast = false }
-                    }
-                }
+                sendExchangeNotification(amount: amount, username: username)
             }
+            .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
     }
 
-    // MARK: Header
     private var header: some View {
         HStack {
             Image(systemName: "chevron.left")
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
 
             Spacer()
 
             VStack(spacing: 2) {
                 Text("Balance")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.shield.fill")
                         .font(.system(size: 10))
@@ -147,7 +148,7 @@ struct BalanceView: View {
             } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
         }
         .padding(.horizontal, 20)
@@ -155,20 +156,19 @@ struct BalanceView: View {
         .padding(.bottom, 20)
     }
 
-    // MARK: Bakiye alanı
     private var balanceSection: some View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text("Estimated balance")
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                 Text("USD")
-                    .foregroundStyle(.gray.opacity(0.8))
+                    .foregroundStyle(.secondary)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                 Image(systemName: "eye")
                     .font(.system(size: 12))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                     .padding(.leading, 4)
             }
             .font(.system(size: 12))
@@ -176,24 +176,24 @@ struct BalanceView: View {
             HStack(spacing: 6) {
                 Text(String(format: "%.2f", balance))
                     .font(.system(size: 36, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
 
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
                     CoinIcon(size: 18)
                     Text("Coins")
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                     Text("\(coins)")
                         .fontWeight(.medium)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                 }
                 .font(.system(size: 12))
 
-                Text("|").foregroundStyle(.gray.opacity(0.4))
+                Text("|").foregroundStyle(.secondary.opacity(0.4))
 
                 HStack(spacing: 4) {
                     Image(systemName: "gift.fill")
@@ -207,29 +207,25 @@ struct BalanceView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.gridBackground)
+            .background(Color.adaptiveCard)
             .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(Color.gray.opacity(0.15), lineWidth: 1)
-            )
             .padding(.top, 4)
         }
         .padding(.vertical, 16)
     }
 
-    // MARK: Transactions kartı
     private var transactionsCard: some View {
         HStack {
             Text("Transactions")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.primary)
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("Rewards received")
                     .font(.system(size: 10))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                 Text("$\(String(format: "%.2f", rewardsReceived))")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.brandAccent)
@@ -237,20 +233,19 @@ struct BalanceView: View {
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12))
-                .foregroundStyle(.gray)
+                .foregroundStyle(.secondary)
                 .padding(.leading, 6)
         }
         .padding(16)
-        .background(Color.cardBackground)
+        .background(Color.adaptiveCard)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 16).stroke(Color.brandAccent.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16).stroke(Color.brandAccent.opacity(0.2), lineWidth: 1)
         )
         .padding(.top, 4)
         .padding(.bottom, 10)
     }
 
-    // MARK: Exchange / Withdraw
     private var actionButtons: some View {
         VStack(spacing: 10) {
             Button {
@@ -269,14 +264,13 @@ struct BalanceView: View {
                 .font(.system(size: 14))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(Color.softButtonGray)
-                .foregroundStyle(.black)
+                .background(Color.adaptiveCard)
+                .foregroundStyle(.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .padding(.bottom, 20)
     }
 
-    // MARK: Grid menü
     private var quickActionsGrid: some View {
         let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
         let items: [(String, String)] = [
@@ -290,50 +284,53 @@ struct BalanceView: View {
             ForEach(items, id: \.1) { item in
                 VStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(.white)
+                        .fill(Color.adaptiveCard)
                         .frame(width: 62, height: 62)
                         .overlay(
                             Image(systemName: item.0)
-                                .foregroundStyle(.black.opacity(0.75))
+                                .foregroundStyle(.primary.opacity(0.8))
                                 .font(.system(size: 24))
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
                     Text(item.1)
                         .font(.system(size: 12))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.black.opacity(0.75))
+                        .foregroundStyle(.primary.opacity(0.8))
                 }
             }
         }
         .padding(16)
         .padding(.vertical, 8)
-        .background(Color.gridBackground)
+        .background(Color.adaptiveCard.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .padding(.bottom, 24)
     }
 }
 
-// MARK: - Exchange Ekranı
+// MARK: - Exchange Screen
 struct ExchangeView: View {
     let availableCoins: Int
     var onSent: (Int, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var amountText: String = ""
-    @State private var username: String = ""
-    @State private var errorText: String? = nil
-    @State private var didSend: Bool = false
-    @FocusState private var focusedField: Field?
 
-    enum Field { case amount, username }
+    @State private var searchText: String = ""
+    @State private var foundUsername: String? = nil
+    @State private var amountText: String = ""
+    @State private var showConfirm: Bool = false
+    @State private var didSend: Bool = false
+
+    private let coinToUSDRate: Double = 0.014
+    private let feeRate: Double = 0.009
+
+    private var amountValue: Int { Int(amountText) ?? 0 }
+    private var exchangeValue: Double { Double(amountValue) * coinToUSDRate }
+    private var fee: Double { exchangeValue * feeRate }
+    private var total: Double { exchangeValue + fee }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color.adaptiveBackground.ignoresSafeArea()
 
                 if didSend {
                     successView
@@ -346,89 +343,148 @@ struct ExchangeView: View {
             .toolbar {
                 if !didSend {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("İptal") { dismiss() }
+                        Button("Cancel") { dismiss() }
                     }
                 }
+            }
+            .alert("Complete exchange for \(amountValue) credits?", isPresented: $showConfirm) {
+                Button("Go back", role: .cancel) {}
+                Button("Complete") {
+                    onSent(amountValue, foundUsername ?? "")
+                    withAnimation { didSend = true }
+                }
+            } message: {
+                Text("$\(String(format: "%.2f", total)) will be deducted from your available USD balance.")
             }
         }
     }
 
     private var formView: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 6) {
-                CoinIcon(size: 40)
-                Text("\(availableCoins) coin mevcut")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.gray)
-            }
-            .padding(.top, 16)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Creator account")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Miktar (coin)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.gray)
-
-                HStack {
-                    CoinIcon(size: 20)
-                    TextField("0", text: $amountText)
-                        .keyboardType(.numberPad)
-                        .font(.system(size: 20, weight: .semibold))
-                        .focused($focusedField, equals: .amount)
-                }
-                .padding(14)
-                .background(Color.gridBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(focusedField == .amount ? Color.brandAccent : Color.gray.opacity(0.15), lineWidth: 1.5)
-                )
-
-                Text("Kullanıcı adı")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.gray)
-                    .padding(.top, 6)
-
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text("@")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.gray)
-                    TextField("kullaniciadi", text: $username)
-                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                    TextField("username", text: $searchText)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .focused($focusedField, equals: .username)
+                        .foregroundStyle(.primary)
+                        .onChange(of: searchText) { _ in foundUsername = nil }
                 }
                 .padding(14)
-                .background(Color.gridBackground)
+                .background(Color.adaptiveCard)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(focusedField == .username ? Color.brandAccent : Color.gray.opacity(0.15), lineWidth: 1.5)
-                )
 
-                if let errorText {
-                    Text(errorText)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.brandAccent)
+                Button {
+                    if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                        foundUsername = searchText
+                    }
+                } label: {
+                    Text("Search")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.brandAccent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                if let foundUsername {
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(Color.brandAccent.opacity(0.15))
+                            .frame(width: 48, height: 48)
+                            .overlay(
+                                Text(String(foundUsername.prefix(2)).uppercased())
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(Color.brandAccent)
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(foundUsername.capitalized)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Text("@\(foundUsername)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(Color.adaptiveCard)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    Text("Credits to exchange")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 6)
+
+                    HStack {
+                        CoinIcon(size: 22)
+                        TextField("0", text: $amountText)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Max: \(availableCoins)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.brandAccent)
+                    }
+                    .padding(14)
+                    .background(Color.adaptiveCard)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    if amountValue > 0 {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Exchange value")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("$\(String(format: "%.2f", exchangeValue))")
+                                    .foregroundStyle(.primary)
+                            }
+                            HStack {
+                                Text("Service fee (0.9%)")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("$\(String(format: "%.2f", fee))")
+                                    .foregroundStyle(.primary)
+                            }
+                            Divider()
+                            HStack {
+                                Text("Total")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Text("$\(String(format: "%.2f", total))")
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                        .font(.system(size: 13))
+                        .padding(14)
+                        .background(Color.adaptiveCard)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+
+                    Button {
+                        guard amountValue > 0, amountValue <= availableCoins else { return }
+                        showConfirm = true
+                    } label: {
+                        Text("Review exchange")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(amountValue > 0 && amountValue <= availableCoins ? Color.brandAccent : Color.gray.opacity(0.3))
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(!(amountValue > 0 && amountValue <= availableCoins))
+                    .padding(.top, 6)
                 }
             }
-            .padding(.horizontal, 20)
-
-            Spacer()
-
-            Button {
-                send()
-            } label: {
-                Text("Gönder")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(Color.brandAccent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(20)
         }
     }
 
@@ -438,26 +494,31 @@ struct ExchangeView: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.brandAccent.opacity(0.12))
-                    .frame(width: 88, height: 88)
+                    .fill(Color.green.opacity(0.15))
+                    .frame(width: 96, height: 96)
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(Color.brandAccent)
+                    .font(.system(size: 52))
+                    .foregroundStyle(.green)
             }
 
-            Text("Gönderildi")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(.black)
+            Text("Exchange submitted")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.primary)
 
-            VStack(spacing: 4) {
-                HStack(spacing: 6) {
-                    CoinIcon(size: 16)
-                    Text("\(amountText) coin")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                Text("@\(username) adresine gönderildi")
+            VStack(spacing: 6) {
+                Text("Transferred to")
                     .font(.system(size: 13))
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
+                Text("@\(foundUsername ?? "")")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    CoinIcon(size: 14)
+                    Text("\(amountValue) credits")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 2)
             }
 
             Spacer()
@@ -465,43 +526,26 @@ struct ExchangeView: View {
             Button {
                 dismiss()
             } label: {
-                Text("Tamam")
+                Text("Done")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(Color.softButtonGray)
-                    .foregroundStyle(.black)
+                    .background(Color.adaptiveCard)
+                    .foregroundStyle(.primary)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
     }
-
-    private func send() {
-        guard let amount = Int(amountText), amount > 0 else {
-            errorText = "Geçerli bir miktar gir"
-            return
-        }
-        guard amount <= availableCoins else {
-            errorText = "Yetersiz coin"
-            return
-        }
-        guard !username.trimmingCharacters(in: .whitespaces).isEmpty else {
-            errorText = "Kullanıcı adı gir"
-            return
-        }
-        errorText = nil
-        withAnimation { didSend = true }
-        onSent(amount, username)
-    }
 }
 
-// MARK: - Ayarlar Ekranı
+// MARK: - Settings Screen
 struct SettingsView: View {
     @Binding var balance: Double
     @Binding var coins: Int
     @Binding var rewardsReceived: Double
+    @Binding var prefersDarkMode: Bool
 
     @Environment(\.dismiss) private var dismiss
 
@@ -512,22 +556,32 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Bakiye") {
+                Section("Appearance") {
+                    Picker("Theme", selection: $prefersDarkMode) {
+                        Text("Light").tag(false)
+                        Text("Dark").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Balance") {
                     HStack {
                         Text("USD")
                             .foregroundStyle(.secondary)
                         TextField("0.00", text: $balanceText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .foregroundStyle(.primary)
                     }
                 }
 
                 Section("Coins") {
                     TextField("0", text: $coinsText)
                         .keyboardType(.numberPad)
+                        .foregroundStyle(.primary)
                 }
 
-                Section("Ödüller") {
+                Section("Rewards") {
                     HStack {
                         Text("Rewards received")
                             .foregroundStyle(.secondary)
@@ -535,17 +589,18 @@ struct SettingsView: View {
                         TextField("0.00", text: $rewardsText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .foregroundStyle(.primary)
                     }
                 }
             }
-            .navigationTitle("Ayarlar")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("İptal") { dismiss() }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button("Save") {
                         balance = Double(balanceText) ?? balance
                         coins = Int(coinsText) ?? coins
                         rewardsReceived = Double(rewardsText) ?? rewardsReceived
