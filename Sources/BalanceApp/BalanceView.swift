@@ -6,60 +6,130 @@ extension Color {
     static let brandAccent = Color(red: 254/255, green: 44/255, blue: 85/255)
     static let adaptiveCard = Color(.secondarySystemBackground)
     static let adaptiveBackground = Color(.systemBackground)
+
+    // Coin colors (from the provided SVG)
+    static let coinLayer1 = Color(red: 255/255, green: 184/255, blue: 77/255)  // FFB84D
+    static let coinLayer2 = Color(red: 255/255, green: 222/255, blue: 85/255)  // FFDE55
+    static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)  // F7A80F (covers F7A300 identically, so F7A300 is skipped)
+    static let coinShadow = Color(red: 240/255, green: 146/255, blue: 7/255)   // F09207 (covers E88B00 identically, so E88B00 is skipped)
 }
 
-// MARK: - SVG TikTok Coin Icon
+// MARK: - SVG-style arc helper
+// Converts an SVG elliptical-arc command (endpoint parameterization) into a
+// SwiftUI Path arc, exactly like a browser would render `a rx ry 0 large sweep dx dy`.
+// All arcs in this icon have x-axis-rotation = 0, so that term is omitted.
+extension Path {
+    mutating func addSVGArc(from start: CGPoint, rx: CGFloat, ry: CGFloat, largeArcFlag: Bool, sweepFlag: Bool, end: CGPoint) {
+        if rx == 0 || ry == 0 {
+            addLine(to: end)
+            return
+        }
+        var rx = abs(rx), ry = abs(ry)
+
+        let x1p = (start.x - end.x) / 2
+        let y1p = (start.y - end.y) / 2
+
+        let lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry)
+        if lambda > 1 {
+            let s = sqrt(lambda)
+            rx *= s; ry *= s
+        }
+
+        let sign: CGFloat = (largeArcFlag == sweepFlag) ? -1 : 1
+        let num = max(0, rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p)
+        let den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+        let co = den == 0 ? 0 : sign * sqrt(num / den)
+        let cxp = co * (rx * y1p / ry)
+        let cyp = co * -(ry * x1p / rx)
+
+        let cx = cxp + (start.x + end.x) / 2
+        let cy = cyp + (start.y + end.y) / 2
+
+        func angle(_ ux: CGFloat, _ uy: CGFloat, _ vx: CGFloat, _ vy: CGFloat) -> CGFloat {
+            let dot = ux * vx + uy * vy
+            let len = sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy))
+            var a = acos(max(-1, min(1, dot / len)))
+            if ux * vy - uy * vx < 0 { a = -a }
+            return a
+        }
+
+        let startAngle = angle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+        var deltaAngle = angle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+        if !sweepFlag && deltaAngle > 0 { deltaAngle -= 2 * .pi }
+        if sweepFlag && deltaAngle < 0 { deltaAngle += 2 * .pi }
+        let endAngle = startAngle + deltaAngle
+
+        addArc(center: CGPoint(x: cx, y: cy), radius: rx,
+               startAngle: .radians(startAngle), endAngle: .radians(endAngle),
+               clockwise: deltaAngle < 0)
+    }
+}
+
+// MARK: - SVG TikTok Coin Icon (exact reproduction of the provided SVG)
 struct TikTokCoinIcon: View {
     var size: CGFloat = 18
 
+    // All source coordinates are in the SVG's 48x48 viewBox; `s` maps them to `size`.
+    private var s: CGFloat { size / 48 }
+    private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+
     var body: some View {
         ZStack {
-            Circle()
-                .fill(Color(red: 255/255, green: 184/255, blue: 77/255))
-            Circle()
-                .fill(Color(red: 255/255, green: 222/255, blue: 85/255))
-                .padding(size * 0.02)
-            Circle()
-                .fill(Color(red: 247/255, green: 163/255, blue: 0/255))
-                .padding(size * 0.08)
-            Circle()
-                .fill(Color(red: 240/255, green: 146/255, blue: 7/255))
-                .padding(size * 0.08)
-            
-            Path { path in
-                let w = size
-                path.move(to: CGPoint(x: w * 0.723, y: w * 0.37))
-                path.addCurve(
-                    to: CGPoint(x: w * 0.602, y: w * 0.49),
-                    control1: CGPoint(x: w * 0.723, y: w * 0.49),
-                    control2: CGPoint(x: w * 0.675, y: w * 0.49)
-                )
-                path.addCurve(
-                    to: CGPoint(x: w * 0.502, y: w * 0.41),
-                    control1: CGPoint(x: w * 0.552, y: w * 0.49),
-                    control2: CGPoint(x: w * 0.502, y: w * 0.45)
-                )
-            }
-            .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
+            Circle().fill(Color.coinLayer1)
+                .frame(width: size, height: size)
+            Circle().fill(Color.coinLayer2)
+                .frame(width: 46 * s, height: 46 * s)
+            Circle().fill(Color.coinLayer3)
+                .frame(width: 36 * s, height: 36 * s)
+            Circle().fill(Color.coinShadow)
+                .frame(width: 36 * s, height: 36 * s)
+                .offset(y: 1.5 * s)
 
-            Path { path in
-                let w = size
-                path.move(to: CGPoint(x: w * 0.72, y: w * 0.37))
-                path.addCurve(to: CGPoint(x: w * 0.60, y: w * 0.49), control1: CGPoint(x: w * 0.72, y: w * 0.45), control2: CGPoint(x: w * 0.65, y: w * 0.49))
-                path.addCurve(to: CGPoint(x: w * 0.48, y: w * 0.38), control1: CGPoint(x: w * 0.54, y: w * 0.49), control2: CGPoint(x: w * 0.48, y: w * 0.44))
-                path.addLines([
-                    CGPoint(x: w * 0.48, y: w * 0.71),
-                    CGPoint(x: w * 0.33, y: w * 0.71),
-                    CGPoint(x: w * 0.33, y: w * 0.28),
-                    CGPoint(x: w * 0.43, y: w * 0.28),
-                    CGPoint(x: w * 0.43, y: w * 0.35),
-                    CGPoint(x: w * 0.48, y: w * 0.35)
-                ])
-            }
-            .fill(Color.white)
-            .scaleEffect(0.65)
+            symbolShadow.fill(Color.coinShadow)
+            symbolWhite.fill(Color.white)
         }
         .frame(width: size, height: size)
+    }
+
+    private var symbolShadow: Path {
+        Path { path in
+            path.move(to: p(34.74, 17.77))
+            path.addLine(to: p(34.74, 23.63))
+            path.addCurve(to: p(28.93, 22.08), control1: p(32.68, 23.63), control2: p(30.69, 23.19))
+            path.addLine(to: p(28.93, 29.28))
+            path.addSVGArc(from: p(28.93, 29.28), rx: 7.79 * s, ry: 7.79 * s, largeArcFlag: false, sweepFlag: true, end: p(21.09, 37.03))
+            path.addSVGArc(from: p(21.09, 37.03), rx: 7.79 * s, ry: 7.79 * s, largeArcFlag: false, sweepFlag: true, end: p(13.29, 28.68))
+            path.addSVGArc(from: p(13.29, 28.68), rx: 7.79 * s, ry: 7.79 * s, largeArcFlag: false, sweepFlag: true, end: p(22.48, 20.44))
+            path.addLine(to: p(22.48, 26.44))
+            path.addCurve(to: p(21.09, 26.18), control1: p(22.01, 26.31), control2: p(21.58, 26.18))
+            path.addSVGArc(from: p(21.09, 26.18), rx: 3.14 * s, ry: 3.14 * s, largeArcFlag: false, sweepFlag: false, end: p(18.0, 28.68))
+            path.addSVGArc(from: p(18.0, 28.68), rx: 3.14 * s, ry: 3.14 * s, largeArcFlag: false, sweepFlag: false, end: p(21.1, 31.18))
+            path.addCurve(to: p(24.24, 28.07), control1: p(22.84, 31.18), control2: p(24.24, 29.78))
+            path.addLine(to: p(24.24, 12.03))
+            path.addLine(to: p(28.93, 12.03))
+            path.addSVGArc(from: p(28.93, 12.03), rx: 5.6 * s, ry: 5.6 * s, largeArcFlag: false, sweepFlag: false, end: p(34.74, 17.77))
+            path.closeSubpath()
+        }
+    }
+
+    private var symbolWhite: Path {
+        Path { path in
+            path.move(to: p(34.34, 18.18))
+            path.addSVGArc(from: p(34.34, 18.18), rx: 5.78 * s, ry: 5.78 * s, largeArcFlag: false, sweepFlag: true, end: p(28.52, 12.44))
+            path.addLine(to: p(24.65, 12.44))
+            path.addLine(to: p(24.65, 28.07))
+            path.addCurve(to: p(21.09, 31.57), control1: p(24.65, 30.01), control2: p(23.05, 31.57))
+            path.addSVGArc(from: p(21.09, 31.57), rx: 3.53 * s, ry: 3.53 * s, largeArcFlag: false, sweepFlag: true, end: p(17.54, 28.07))
+            path.addSVGArc(from: p(17.54, 28.07), rx: 3.53 * s, ry: 3.53 * s, largeArcFlag: false, sweepFlag: true, end: p(22.06, 24.69))
+            path.addLine(to: p(22.06, 20.79))
+            path.addSVGArc(from: p(22.06, 20.79), rx: 7.38 * s, ry: 7.38 * s, largeArcFlag: false, sweepFlag: false, end: p(13.66, 28.07))
+            path.addSVGArc(from: p(13.66, 28.07), rx: 7.38 * s, ry: 7.38 * s, largeArcFlag: false, sweepFlag: false, end: p(21.09, 35.41))
+            path.addCurve(to: p(28.52, 28.07), control1: p(25.19, 35.41), control2: p(28.52, 32.12))
+            path.addLine(to: p(28.52, 20.09))
+            path.addSVGArc(from: p(28.52, 20.09), rx: 9.73 * s, ry: 9.73 * s, largeArcFlag: false, sweepFlag: false, end: p(34.34, 22.01))
+            path.addLine(to: p(34.34, 18.18))
+            path.closeSubpath()
+        }
     }
 }
 
