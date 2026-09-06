@@ -10,14 +10,11 @@ extension Color {
     // Coin colors (from the provided SVG)
     static let coinLayer1 = Color(red: 255/255, green: 184/255, blue: 77/255)  // FFB84D
     static let coinLayer2 = Color(red: 255/255, green: 222/255, blue: 85/255)  // FFDE55
-    static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)  // F7A80F (covers F7A300 identically, so F7A300 is skipped)
-    static let coinShadow = Color(red: 240/255, green: 146/255, blue: 7/255)   // F09207 (covers E88B00 identically, so E88B00 is skipped)
+    static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)  // F7A80F
+    static let coinShadow = Color(red: 240/255, green: 146/255, blue: 7/255)   // F09207
 }
 
 // MARK: - SVG-style arc helper
-// Converts an SVG elliptical-arc command (endpoint parameterization) into a
-// SwiftUI Path arc, exactly like a browser would render `a rx ry 0 large sweep dx dy`.
-// All arcs in this icon have x-axis-rotation = 0, so that term is omitted.
 extension Path {
     mutating func addSVGArc(from start: CGPoint, rx: CGFloat, ry: CGFloat, largeArcFlag: Bool, sweepFlag: Bool, end: CGPoint) {
         if rx == 0 || ry == 0 {
@@ -65,7 +62,7 @@ extension Path {
     }
 }
 
-// MARK: - Generic Default Avatar (placeholder, not a real photo)
+// MARK: - Generic Default Avatar
 struct DefaultAvatarIcon: View {
     var size: CGFloat = 48
 
@@ -91,11 +88,10 @@ struct DefaultAvatarIcon: View {
     }
 }
 
-// MARK: - SVG TikTok Coin Icon (exact reproduction of the provided SVG)
+// MARK: - SVG TikTok Coin Icon
 struct TikTokCoinIcon: View {
     var size: CGFloat = 18
 
-    // All source coordinates are in the SVG's 48x48 viewBox; `s` maps them to `size`.
     private var s: CGFloat { size / 48 }
     private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
 
@@ -260,9 +256,10 @@ struct BalanceView: View {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 20, weight: .regular))
                     .foregroundStyle(.primary)
             }
+            .buttonStyle(.plain) // Butonun mavi olmasını engeller
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -381,24 +378,28 @@ struct BalanceView: View {
     }
 
     private var quickActionsGrid: some View {
-        let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+        let columns = [
+            GridItem(.flexible(), alignment: .top),
+            GridItem(.flexible(), alignment: .top),
+            GridItem(.flexible(), alignment: .top)
+        ]
         let items: [(icon: String, label: String, showBadge: Bool)] = [
             ("dollarsign.circle.fill", "LIVE rewards", false),
             ("chart.bar.fill", "Monetization", false),
-            ("checkmark.shield.fill", "Campaigns", true),
+            ("shield.lefthalf.filled", "Campaigns", true),
             ("calendar.badge.checkmark", "Subscription\nManager", false)
         ]
 
         return LazyVGrid(columns: columns, spacing: 24) {
             ForEach(items, id: \.label) { item in
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     ZStack(alignment: .topTrailing) {
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.primary)
-                            .frame(width: 62, height: 62)
+                            .fill(Color.gray.opacity(0.12))
+                            .frame(width: 60, height: 60)
                             .overlay(
                                 Image(systemName: item.icon)
-                                    .foregroundStyle(Color(.systemBackground))
+                                    .foregroundStyle(.primary)
                                     .font(.system(size: 24))
                             )
                         if item.showBadge {
@@ -409,16 +410,16 @@ struct BalanceView: View {
                         }
                     }
                     Text(item.label)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13, weight: .semibold))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.primary.opacity(0.8))
+                        .foregroundStyle(.primary)
                 }
             }
         }
-        .padding(16)
-        .padding(.vertical, 8)
-        .background(Color.adaptiveCard.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .padding(.vertical, 24)
+        .padding(.horizontal, 16)
+        .background(Color.adaptiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
         .padding(.bottom, 24)
     }
 }
@@ -430,10 +431,16 @@ struct ExchangeView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    enum FocusField {
+        case search
+        case amount
+    }
+
     @State private var searchText: String = ""
-    @State private var foundUsername: String? = nil
+    @State private var selectedUsername: String? = nil
     @State private var amountText: String = ""
-    @FocusState private var isSearchFieldFocused: Bool
+    @FocusState private var focusedField: FocusField?
+    
     @State private var showConfirm: Bool = false
     @State private var didSend: Bool = false
 
@@ -468,63 +475,70 @@ struct ExchangeView: View {
             .alert("Complete exchange for \(amountValue) coins?", isPresented: $showConfirm) {
                 Button("Go back", role: .cancel) {}
                 Button("Complete") {
-                    onSent(amountValue, foundUsername ?? "", total)
+                    onSent(amountValue, selectedUsername ?? "", total)
                     withAnimation { didSend = true }
                 }
             } message: {
                 Text("$\(String(format: "%.2f", total)) will be deducted from your available USD balance.")
             }
+            .onAppear {
+                // Sayfa açılır açılmaz search alanına odaklan ve klavyeyi aç
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    focusedField = .search
+                }
+            }
         }
         .tint(Color.brandAccent)
     }
 
-    private func runSearch() {
-        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        foundUsername = trimmed
-        isSearchFieldFocused = false
-    }
-
     private var formView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Creator account")
-                    .font(.system(size: 13, weight: .semibold))
+            if selectedUsername == nil {
+                searchStepView
+            } else {
+                amountStepView
+            }
+        }
+    }
+
+    // MARK: 1. Adım: Kullanıcı Arama Görünümü
+    private var searchStepView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Creator account")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 6) {
+                Text("@")
                     .foregroundStyle(.secondary)
+                TextField("username", text: $searchText)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .foregroundStyle(.primary)
+                    .focused($focusedField, equals: .search)
+            }
+            .padding(14)
+            .background(Color.adaptiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                HStack(spacing: 6) {
-                    Text("@")
-                        .foregroundStyle(.secondary)
-                    TextField("username", text: $searchText)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .foregroundStyle(.primary)
-                        .focused($isSearchFieldFocused)
-                        .submitLabel(.search)
-                        .onSubmit(runSearch)
-                }
-                .padding(14)
-                .background(Color.adaptiveCard)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                Button(action: runSearch) {
-                    Text("Search")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.brandAccent)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-
-                if let foundUsername {
+            // Yazı yazıldıkça beliren canlı, tıklanabilir profil
+            if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                Button {
+                    // Profile tıklanınca ismi ayarla ve bakiye kısmına geç
+                    selectedUsername = searchText.trimmingCharacters(in: .whitespaces)
+                    
+                    // Geçişte klavyenin yeni alana anında odaklanmasını sağla
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        focusedField = .amount
+                    }
+                } label: {
                     HStack(spacing: 12) {
-                        DefaultAvatarIcon(size: 48)
+                        DefaultAvatarIcon(size: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(foundUsername.capitalized)
+                            Text(searchText.capitalized)
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(.primary)
-                            Text("@\(foundUsername)")
+                            Text("@\(searchText)")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
@@ -533,94 +547,135 @@ struct ExchangeView: View {
                     .padding(14)
                     .background(Color.adaptiveCard)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain) // Buton animasyonu ve renk uyumu için
+            }
+            
+            Spacer()
+        }
+        .padding(20)
+    }
 
-                    Text("Coins to exchange")
-                        .font(.system(size: 13, weight: .semibold))
+    // MARK: 2. Adım: Bakiye (Miktar) Girme Görünümü
+    private var amountStepView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Seçilen kullanıcının göründüğü alan
+            HStack(spacing: 12) {
+                DefaultAvatarIcon(size: 48)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedUsername!.capitalized)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text("@\(selectedUsername!)")
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                        .padding(.top, 6)
-
-                    HStack {
-                        TikTokCoinIcon(size: 22)
-                        TextField("0", text: $amountText)
-                            .keyboardType(.numberPad)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .onChange(of: amountText) { newValue in
-                                let digitsOnly = newValue.filter(\.isNumber)
-                                if let val = Int(digitsOnly), val > availableCoins {
-                                    amountText = "\(availableCoins)"
-                                } else {
-                                    amountText = digitsOnly
-                                }
-                            }
-                        Spacer()
-                        Text("Max: \(availableCoins)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.brandAccent)
-                            .onTapGesture {
-                                amountText = "\(availableCoins)"
-                            }
+                }
+                Spacer()
+                
+                // İptal edip aramaya geri dönme butonu
+                Button {
+                    selectedUsername = nil
+                    amountText = ""
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        focusedField = .search
                     }
-                    .padding(14)
-                    .background(Color.adaptiveCard)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                    if amountValue > 0 {
-                        Text("\(amountValue) coin ($\(String(format: "%.2f", exchangeValue)))")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if amountValue > 0 {
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Exchange value")
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("$\(String(format: "%.2f", exchangeValue))")
-                                    .foregroundStyle(.primary)
-                            }
-                            HStack {
-                                Text("Service fee (0.9%)")
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("$\(String(format: "%.2f", fee))")
-                                    .foregroundStyle(.primary)
-                            }
-                            Divider()
-                            HStack {
-                                Text("Total")
-                                    .fontWeight(.semibold)
-                                Spacer()
-                                Text("$\(String(format: "%.2f", total))")
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundStyle(.primary)
-                        }
-                        .font(.system(size: 13))
-                        .padding(14)
-                        .background(Color.adaptiveCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-
-                    Button {
-                        guard amountValue > 0, amountValue <= availableCoins else { return }
-                        showConfirm = true
-                    } label: {
-                        Text("Review exchange")
-                            .font(.system(size: 15, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(amountValue > 0 && amountValue <= availableCoins ? Color.brandAccent : Color.gray.opacity(0.3))
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-                    .disabled(!(amountValue > 0 && amountValue <= availableCoins))
-                    .padding(.top, 6)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.secondary.opacity(0.5))
                 }
             }
-            .padding(20)
+            .padding(14)
+            .background(Color.adaptiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            Text("Coins to exchange")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 6)
+
+            // Bakiye giriş alanı (Buraya geçer geçmez klavye otomatik odaklanacak)
+            HStack {
+                TikTokCoinIcon(size: 22)
+                TextField("0", text: $amountText)
+                    .keyboardType(.numberPad)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .focused($focusedField, equals: .amount) // Otomatik odaklanan alan
+                    .onChange(of: amountText) { newValue in
+                        let digitsOnly = newValue.filter(\.isNumber)
+                        if let val = Int(digitsOnly), val > availableCoins {
+                            amountText = "\(availableCoins)"
+                        } else {
+                            amountText = digitsOnly
+                        }
+                    }
+                Spacer()
+                Text("Max: \(availableCoins)")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.brandAccent)
+                    .onTapGesture {
+                        amountText = "\(availableCoins)"
+                    }
+            }
+            .padding(14)
+            .background(Color.adaptiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            if amountValue > 0 {
+                Text("\(amountValue) coin ($\(String(format: "%.2f", exchangeValue)))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            if amountValue > 0 {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Exchange value")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", exchangeValue))")
+                            .foregroundStyle(.primary)
+                    }
+                    HStack {
+                        Text("Service fee (0.9%)")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", fee))")
+                            .foregroundStyle(.primary)
+                    }
+                    Divider()
+                    HStack {
+                        Text("Total")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("$\(String(format: "%.2f", total))")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundStyle(.primary)
+                }
+                .font(.system(size: 13))
+                .padding(14)
+                .background(Color.adaptiveCard)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
+            Button {
+                guard amountValue > 0, amountValue <= availableCoins else { return }
+                showConfirm = true
+            } label: {
+                Text("Review exchange")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(amountValue > 0 && amountValue <= availableCoins ? Color.brandAccent : Color.gray.opacity(0.3))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .disabled(!(amountValue > 0 && amountValue <= availableCoins))
+            .padding(.top, 6)
         }
+        .padding(20)
     }
 
     private var successView: some View {
@@ -641,7 +696,7 @@ struct ExchangeView: View {
             }
 
             VStack(spacing: 6) {
-                Text("Transferred to @\(foundUsername ?? "")")
+                Text("Transferred to @\(selectedUsername ?? "")")
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                 HStack(spacing: 6) {
