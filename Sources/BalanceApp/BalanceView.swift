@@ -170,10 +170,10 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-func sendExchangeNotification(usdAmount: Double) {
+func sendExchangeNotification(usdAmount: Double, username: String) {
     let content = UNMutableNotificationContent()
-    content.title = "TikTok"
-    content.body = "-US$\(String(format: "%.2f", usdAmount))"
+    content.title = ""
+    content.body = "You exchanged $\(String(format: "%.2f", usdAmount)) with @\(username)"
     content.sound = .default
 
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
@@ -227,7 +227,7 @@ struct BalanceView: View {
         .sheet(isPresented: $showExchangeSheet) {
             ExchangeView(availableCoins: coins) { amount, username, usdAmount in
                 coins -= amount
-                sendExchangeNotification(usdAmount: usdAmount)
+                sendExchangeNotification(usdAmount: usdAmount, username: username)
             }
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
@@ -465,7 +465,7 @@ struct ExchangeView: View {
                     }
                 }
             }
-            .alert("Complete exchange for \(amountValue) credits?", isPresented: $showConfirm) {
+            .alert("Complete exchange for \(amountValue) coins?", isPresented: $showConfirm) {
                 Button("Go back", role: .cancel) {}
                 Button("Complete") {
                     onSent(amountValue, foundUsername ?? "", total)
@@ -534,7 +534,7 @@ struct ExchangeView: View {
                     .background(Color.adaptiveCard)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                    Text("Credits to exchange")
+                    Text("Coins to exchange")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .padding(.top, 6)
@@ -646,7 +646,7 @@ struct ExchangeView: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 6) {
                     TikTokCoinIcon(size: 14)
-                    Text("\(amountValue) credits")
+                    Text("\(amountValue) coins")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
