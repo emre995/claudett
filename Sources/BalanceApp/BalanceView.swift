@@ -65,6 +65,32 @@ extension Path {
     }
 }
 
+// MARK: - Generic Default Avatar (placeholder, not a real photo)
+struct DefaultAvatarIcon: View {
+    var size: CGFloat = 48
+
+    private var outerGray: Color { Color(red: 209/255, green: 211/255, blue: 214/255) }
+    private var innerGray: Color { Color(red: 240/255, green: 241/255, blue: 242/255) }
+
+    var body: some View {
+        ZStack {
+            Circle().fill(outerGray)
+
+            Circle()
+                .fill(innerGray)
+                .frame(width: size * 0.34, height: size * 0.34)
+                .offset(y: -size * 0.08)
+
+            Circle()
+                .fill(innerGray)
+                .frame(width: size * 0.62, height: size * 0.62)
+                .offset(y: size * 0.44)
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+}
+
 // MARK: - SVG TikTok Coin Icon (exact reproduction of the provided SVG)
 struct TikTokCoinIcon: View {
     var size: CGFloat = 18
@@ -441,33 +467,29 @@ struct BalanceView: View {
     }
 
     private var transactionsCard: some View {
-        HStack {
+        HStack(spacing: 6) {
             Text("Transactions")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("Rewards received")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                Text("$\(String(format: "%.2f", rewardsReceived))")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.brandAccent)
-            }
+            Text("Rewards received: $\(String(format: "%.2f", rewardsReceived))")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+
+            Circle()
+                .fill(Color.brandAccent)
+                .frame(width: 6, height: 6)
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-                .padding(.leading, 6)
+                .padding(.leading, 2)
         }
         .padding(16)
         .background(Color.adaptiveCard)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16).stroke(Color.brandAccent.opacity(0.2), lineWidth: 1)
-        )
         .padding(.top, 4)
         .padding(.bottom, 10)
     }
@@ -499,25 +521,33 @@ struct BalanceView: View {
 
     private var quickActionsGrid: some View {
         let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
-        let items: [(String, String)] = [
-            ("dollarsign.circle.fill", "LIVE rewards"),
-            ("chart.bar.fill", "Monetization"),
-            ("star.fill", "Campaigns"),
-            ("calendar.badge.checkmark", "Subscriptions\nManager")
+        let items: [(icon: String, label: String, showBadge: Bool)] = [
+            ("dollarsign.circle.fill", "LIVE rewards", false),
+            ("chart.bar.fill", "Monetization", false),
+            ("checkmark.shield.fill", "Campaigns", true),
+            ("calendar.badge.checkmark", "Subscription\nManager", false)
         ]
 
         return LazyVGrid(columns: columns, spacing: 24) {
-            ForEach(items, id: \.1) { item in
+            ForEach(items, id: \.label) { item in
                 VStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.adaptiveCard)
-                        .frame(width: 62, height: 62)
-                        .overlay(
-                            Image(systemName: item.0)
-                                .foregroundStyle(.primary.opacity(0.8))
-                                .font(.system(size: 24))
-                        )
-                    Text(item.1)
+                    ZStack(alignment: .topTrailing) {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.primary)
+                            .frame(width: 62, height: 62)
+                            .overlay(
+                                Image(systemName: item.icon)
+                                    .foregroundStyle(Color(.systemBackground))
+                                    .font(.system(size: 24))
+                            )
+                        if item.showBadge {
+                            Circle()
+                                .fill(Color.brandAccent)
+                                .frame(width: 10, height: 10)
+                                .offset(x: 2, y: -2)
+                        }
+                    }
+                    Text(item.label)
                         .font(.system(size: 12))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.primary.opacity(0.8))
@@ -539,9 +569,10 @@ struct ExchangeView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var searchText: String = "hadise"
-    @State private var foundUsername: String? = "hadise"
-    @State private var amountText: String = "2888"
+    @State private var searchText: String = ""
+    @State private var foundUsername: String? = nil
+    @State private var amountText: String = ""
+    @FocusState private var isSearchFieldFocused: Bool
     @State private var showConfirm: Bool = false
     @State private var didSend: Bool = false
     @State private var showCustomKeypad: Bool = false
@@ -590,6 +621,14 @@ struct ExchangeView: View {
                 .presentationDetents([.height(380)])
             }
         }
+        .tint(Color.brandAccent)
+    }
+
+    private func runSearch() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        foundUsername = trimmed
+        isSearchFieldFocused = false
     }
 
     private var formView: some View {
@@ -606,16 +645,15 @@ struct ExchangeView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .foregroundStyle(.primary)
+                        .focused($isSearchFieldFocused)
+                        .submitLabel(.search)
+                        .onSubmit(runSearch)
                 }
                 .padding(14)
                 .background(Color.adaptiveCard)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                Button {
-                    if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
-                        foundUsername = searchText
-                    }
-                } label: {
+                Button(action: runSearch) {
                     Text("Search")
                         .font(.system(size: 15, weight: .semibold))
                         .frame(maxWidth: .infinity)
@@ -627,14 +665,7 @@ struct ExchangeView: View {
 
                 if let foundUsername {
                     HStack(spacing: 12) {
-                        Circle()
-                            .fill(Color.brandAccent.opacity(0.15))
-                            .frame(width: 48, height: 48)
-                            .overlay(
-                                Text(String(foundUsername.prefix(2)).uppercased())
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(Color.brandAccent)
-                            )
+                        DefaultAvatarIcon(size: 48)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(foundUsername.capitalized)
                                 .font(.system(size: 15, weight: .semibold))
@@ -725,36 +756,32 @@ struct ExchangeView: View {
     }
 
     private var successView: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 24) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.15))
-                    .frame(width: 96, height: 96)
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(.green)
-            }
-
-            Text("Exchange submitted")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.primary)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.green)
 
             VStack(spacing: 6) {
-                Text("Transferred to")
-                    .font(.system(size: 13))
+                Text("Exchange completed")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary)
-                Text("@\(foundUsername ?? "")")
-                    .font(.system(size: 17, weight: .semibold))
+                Text("$\(String(format: "%.2f", total))")
+                    .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.primary)
+            }
+
+            VStack(spacing: 6) {
+                Text("Transferred to @\(foundUsername ?? "")")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
                 HStack(spacing: 6) {
                     TikTokCoinIcon(size: 14)
                     Text("\(amountValue) credits")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
-                .padding(.top, 2)
             }
 
             Spacer()
@@ -766,8 +793,8 @@ struct ExchangeView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(Color.adaptiveCard)
-                    .foregroundStyle(.primary)
+                    .background(Color.brandAccent)
+                    .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 20)
@@ -851,6 +878,7 @@ struct SettingsView: View {
                 rewardsText = String(format: "%.2f", rewardsReceived)
             }
         }
+        .tint(Color.brandAccent)
     }
 }
 
