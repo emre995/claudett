@@ -1,3 +1,4 @@
+```swift
 import SwiftUI
 import UserNotifications
 
@@ -6,6 +7,65 @@ extension Color {
     static let brandAccent = Color(red: 254/255, green: 44/255, blue: 85/255)
     static let adaptiveCard = Color(.secondarySystemBackground)
     static let adaptiveBackground = Color(.systemBackground)
+}
+
+// MARK: - SVG TikTok Coin Icon
+struct TikTokCoinIcon: View {
+    var size: CGFloat = 18
+
+    var body: some View {
+        ZStack {
+            // Base circles / gradients matching the SVG layers
+            Circle()
+                .fill(Color(red: 255/255, green: 184/255, blue: 77/255))
+            Circle()
+                .fill(Color(red: 255/255, green: 222/255, blue: 85/255))
+                .padding(size * 0.02)
+            Circle()
+                .fill(Color(red: 247/255, green: 163/255, blue: 0/255))
+                .padding(size * 0.08)
+            Circle()
+                .fill(Color(red: 240/255, green: 146/255, blue: 7/255))
+                .padding(size * 0.08)
+            
+            // Inner path details
+            Path { path in
+                let w = size
+                path.move(to: CGPoint(x: w * 0.723, y: w * 0.37))
+                path.addCurve(
+                    to: CGPoint(x: w * 0.602, y: w * 0.49),
+                    control1: CGPoint(x: w * 0.723, y: w * 0.49),
+                    control2: CGPoint(x: w * 0.675, y: w * 0.49)
+                )
+                path.addCurve(
+                    to: CGPoint(x: w * 0.502, y: w * 0.41),
+                    control1: CGPoint(x: w * 0.552, y: w * 0.49),
+                    control2: CGPoint(x: w * 0.502, y: w * 0.45)
+                )
+            }
+            .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
+
+            // Simplified accurate representation of TikTok Coin inner symbol
+            Path { path in
+                let w = size
+                // Outer body curve of the coin symbol
+                path.move(to: CGPoint(x: w * 0.72, y: w * 0.37))
+                path.addCurve(to: CGPoint(x: w * 0.60, y: w * 0.49), control1: CGPoint(x: w * 0.72, y: w * 0.45), control2: CGPoint(x: w * 0.65, y: w * 0.49))
+                path.addCurve(to: CGPoint(x: w * 0.48, y: w * 0.38), control1: CGPoint(x: w * 0.54, y: w * 0.49), control2: CGPoint(x: w * 0.48, y: w * 0.44))
+                path.addLines([
+                    CGPoint(x: w * 0.48, y: w * 0.71),
+                    CGPoint(x: w * 0.33, y: w * 0.71),
+                    CGPoint(x: w * 0.33, y: w * 0.28),
+                    CGPoint(x: w * 0.43, y: w * 0.28),
+                    CGPoint(x: w * 0.43, y: w * 0.35),
+                    CGPoint(x: w * 0.48, y: w * 0.35)
+                ])
+            }
+            .fill(Color.white)
+            .scaleEffect(0.65)
+        }
+        .frame(width: size, height: size)
+    }
 }
 
 // MARK: - Notifications
@@ -30,41 +90,147 @@ func sendExchangeNotification(amount: Int, username: String) {
     UNUserNotificationCenter.current().add(request)
 }
 
-// MARK: - Coin Icon
-struct CoinIcon: View {
-    var size: CGFloat = 18
+// MARK: - Custom Numeric Keypad Sheet
+struct CustomKeypadView: View {
+    @Binding var amountText: String
+    let maxCoins: Int
+    var onDone: () -> Void
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(red: 255/255, green: 200/255, blue: 87/255),
-                                 Color(red: 247/255, green: 148/255, blue: 15/255)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-            Circle()
-                .stroke(Color.white.opacity(0.6), lineWidth: size * 0.04)
-                .padding(size * 0.08)
-            Path { path in
-                let w = size
-                path.move(to: CGPoint(x: w * 0.32, y: w * 0.28))
-                path.addCurve(
-                    to: CGPoint(x: w * 0.68, y: w * 0.42),
-                    control1: CGPoint(x: w * 0.5, y: w * 0.18),
-                    control2: CGPoint(x: w * 0.68, y: w * 0.3)
-                )
-                path.addCurve(
-                    to: CGPoint(x: w * 0.32, y: w * 0.72),
-                    control1: CGPoint(x: w * 0.68, y: w * 0.62),
-                    control2: CGPoint(x: w * 0.5, y: w * 0.8)
-                )
+        VStack(spacing: 0) {
+            // Header bar
+            HStack {
+                Text("Credit amount")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button("All") {
+                    amountText = "\(maxCoins)"
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.brandAccent)
+                
+                Button {
+                    onDone()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.primary)
+                }
+                .padding(.leading, 12)
             }
-            .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round))
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+
+            // Amount Display Box
+            HStack(spacing: 8) {
+                TikTokCoinIcon(size: 24)
+                Text(amountText.isEmpty ? "0" : amountText)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.adaptiveCard)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.brandAccent.opacity(0.3), lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+
+            // Subtitle info
+            HStack {
+                let currentVal = Int(amountText) ?? 0
+                let usdVal = Double(currentVal) * 0.014
+                Text("Available to exchange: \(maxCoins) credits • $\(String(format: "%.2f", usdVal))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+
+            // Keypad Grid
+            VStack(spacing: 10) {
+                keypadRow(keys: ["1", "2", "3", "delete"])
+                keypadRow(keys: ["4", "5", "6", "000"])
+                keypadRow(keys: ["7", "8", "9", "0"])
+            }
+            .padding(.horizontal, 16)
+
+            // Done Button
+            Button {
+                onDone()
+            } label: {
+                Text("Done")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Color.brandAccent)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
         }
-        .frame(width: size, height: size)
+        .background(Color.adaptiveBackground)
+    }
+
+    private func keypadRow(keys: [String]) -> some View {
+        HStack(spacing: 10) {
+            ForEach(keys, id: \.self) { key in
+                Button {
+                    handleKeyPress(key)
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.adaptiveCard)
+                        
+                        if key == "delete" {
+                            Image(systemName: "delete.left.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.primary)
+                        } else {
+                            Text(key)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .frame(height: 52)
+                }
+            }
+        }
+    }
+
+    private func handleKeyPress(_ key: String) {
+        if key == "delete" {
+            if !amountText.isEmpty {
+                amountText.removeLast()
+            }
+        } else if key == "000" {
+            if !amountText.isEmpty && amountText != "0" {
+                let newVal = (Int(amountText) ?? 0) * 1000
+                if newVal <= maxCoins {
+                    amountText = "\(newVal)"
+                }
+            }
+        } else {
+            if amountText == "0" {
+                amountText = key
+            } else {
+                let potentialText = amountText + key
+                if let val = Int(potentialText), val <= maxCoins {
+                    amountText = potentialText
+                } else if Int(potentialText) == nil && potentialText.count <= 10 {
+                    amountText = potentialText
+                }
+            }
+        }
     }
 }
 
@@ -73,7 +239,7 @@ struct BalanceView: View {
     @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = false
 
     @State private var balance: Double = 0.10
-    @State private var coins: Int = 0
+    @State private var coins: Int = 2888
     @State private var rewardsReceived: Double = 87598.45
     @State private var showSettings: Bool = false
     @State private var showExchangeSheet: Bool = false
@@ -184,7 +350,7 @@ struct BalanceView: View {
 
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    CoinIcon(size: 18)
+                    TikTokCoinIcon(size: 18)
                     Text("Coins")
                         .foregroundStyle(.secondary)
                     Text("\(coins)")
@@ -313,11 +479,12 @@ struct ExchangeView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var searchText: String = ""
-    @State private var foundUsername: String? = nil
-    @State private var amountText: String = ""
+    @State private var searchText: String = "hadise"
+    @State private var foundUsername: String? = "hadise"
+    @State private var amountText: String = "2888"
     @State private var showConfirm: Bool = false
     @State private var didSend: Bool = false
+    @State private var showCustomKeypad: Bool = false
 
     private let coinToUSDRate: Double = 0.014
     private let feeRate: Double = 0.009
@@ -356,6 +523,12 @@ struct ExchangeView: View {
             } message: {
                 Text("$\(String(format: "%.2f", total)) will be deducted from your available USD balance.")
             }
+            .sheet(isPresented: $showCustomKeypad) {
+                CustomKeypadView(amountText: $amountText, maxCoins: availableCoins) {
+                    showCustomKeypad = false
+                }
+                .presentationDetents([.height(380)])
+            }
         }
     }
 
@@ -373,7 +546,6 @@ struct ExchangeView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .foregroundStyle(.primary)
-                        .onChange(of: searchText) { _ in foundUsername = nil }
                 }
                 .padding(14)
                 .background(Color.adaptiveCard)
@@ -422,19 +594,24 @@ struct ExchangeView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 6)
 
-                    HStack {
-                        CoinIcon(size: 22)
-                        TextField("0", text: $amountText)
-                            .keyboardType(.numberPad)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.primary)
-                        Text("Max: \(availableCoins)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.brandAccent)
+                    // Button that triggers the custom keypad instead of standard keyboard
+                    Button {
+                        showCustomKeypad = true
+                    } label: {
+                        HStack {
+                            TikTokCoinIcon(size: 22)
+                            Text(amountText.isEmpty ? "0" : amountText)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text("Max: \(availableCoins)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.brandAccent)
+                        }
+                        .padding(14)
+                        .background(Color.adaptiveCard)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
-                    .padding(14)
-                    .background(Color.adaptiveCard)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
 
                     if amountValue > 0 {
                         VStack(spacing: 8) {
@@ -513,7 +690,7 @@ struct ExchangeView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.primary)
                 HStack(spacing: 6) {
-                    CoinIcon(size: 14)
+                    TikTokCoinIcon(size: 14)
                     Text("\(amountValue) credits")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -621,3 +798,5 @@ struct SettingsView: View {
 #Preview {
     BalanceView()
 }
+
+```
