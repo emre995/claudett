@@ -1,4 +1,3 @@
-```swift
 import SwiftUI
 import UserNotifications
 
@@ -15,7 +14,6 @@ struct TikTokCoinIcon: View {
 
     var body: some View {
         ZStack {
-            // Base circles / gradients matching the SVG layers
             Circle()
                 .fill(Color(red: 255/255, green: 184/255, blue: 77/255))
             Circle()
@@ -28,7 +26,6 @@ struct TikTokCoinIcon: View {
                 .fill(Color(red: 240/255, green: 146/255, blue: 7/255))
                 .padding(size * 0.08)
             
-            // Inner path details
             Path { path in
                 let w = size
                 path.move(to: CGPoint(x: w * 0.723, y: w * 0.37))
@@ -45,10 +42,8 @@ struct TikTokCoinIcon: View {
             }
             .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.1, lineCap: .round))
 
-            // Simplified accurate representation of TikTok Coin inner symbol
             Path { path in
                 let w = size
-                // Outer body curve of the coin symbol
                 path.move(to: CGPoint(x: w * 0.72, y: w * 0.37))
                 path.addCurve(to: CGPoint(x: w * 0.60, y: w * 0.49), control1: CGPoint(x: w * 0.72, y: w * 0.45), control2: CGPoint(x: w * 0.65, y: w * 0.49))
                 path.addCurve(to: CGPoint(x: w * 0.48, y: w * 0.38), control1: CGPoint(x: w * 0.54, y: w * 0.49), control2: CGPoint(x: w * 0.48, y: w * 0.44))
@@ -98,7 +93,6 @@ struct CustomKeypadView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header bar
             HStack {
                 Text("Credit amount")
                     .font(.system(size: 15, weight: .semibold))
@@ -123,7 +117,6 @@ struct CustomKeypadView: View {
             .padding(.top, 20)
             .padding(.bottom, 12)
 
-            // Amount Display Box
             HStack(spacing: 8) {
                 TikTokCoinIcon(size: 24)
                 Text(amountText.isEmpty ? "0" : amountText)
@@ -141,7 +134,6 @@ struct CustomKeypadView: View {
             )
             .padding(.horizontal, 16)
 
-            // Subtitle info
             HStack {
                 let currentVal = Int(amountText) ?? 0
                 let usdVal = Double(currentVal) * 0.014
@@ -154,7 +146,6 @@ struct CustomKeypadView: View {
             .padding(.top, 8)
             .padding(.bottom, 16)
 
-            // Keypad Grid
             VStack(spacing: 10) {
                 keypadRow(keys: ["1", "2", "3", "delete"])
                 keypadRow(keys: ["4", "5", "6", "000"])
@@ -162,7 +153,6 @@ struct CustomKeypadView: View {
             }
             .padding(.horizontal, 16)
 
-            // Done Button
             Button {
                 onDone()
             } label: {
@@ -594,7 +584,6 @@ struct ExchangeView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 6)
 
-                    // Button that triggers the custom keypad instead of standard keyboard
                     Button {
                         showCustomKeypad = true
                     } label: {
@@ -798,5 +787,3 @@ struct SettingsView: View {
 #Preview {
     BalanceView()
 }
-
-```
