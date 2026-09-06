@@ -1,6 +1,6 @@
 /*
  Bu dosya tamamen geçerli bir Swift kodudur.
- @AppStorage ile kalıcı veri saklama ve tipografi/boyut optimizasyonları yapılmıştır.
+ Bildirim delegesinin (delegate) AppStorage güncellemelerinde kaybolmaması için Singleton (NotificationManager) yapısına geçilmiştir.
  Güvenle derleyebilirsin.
 */
 
@@ -165,19 +165,16 @@ struct TikTokCoinIcon: View {
 struct CompositeCoinAlertIcon: View {
     var body: some View {
         ZStack {
-            // Light Blue Circle
             Circle()
                 .fill(Color(red: 219/255, green: 240/255, blue: 252/255))
                 .frame(width: 54, height: 54)
                 .offset(x: -20)
             
-            // Light Pink Circle
             Circle()
                 .fill(Color(red: 253/255, green: 228/255, blue: 235/255))
                 .frame(width: 54, height: 54)
                 .offset(x: 20)
             
-            // Center Coin with White Border
             ZStack {
                 Circle()
                     .fill(Color.white)
@@ -257,40 +254,50 @@ struct CustomExchangeAlert: View {
     }
 }
 
-// MARK: - Notifications
-final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+// MARK: - Notification Manager (Singleton)
+// ÖNEMLİ DÜZELTME: SwiftUI'nin AppStorage yenilemelerinde delegate'i sıfırlamaması için tekil (singleton) yapıya geçirildi.
+final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = NotificationManager()
+    
+    private override init() { super.init() }
+    
+    func setup() {
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+    
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        // Ön planda (uygulama açıkken) banner ve ses tetiklemesi
         completionHandler([.banner, .sound, .list])
     }
-}
+    
+    func sendExchangeNotification(usdAmount: Double, username: String) {
+        let content = UNMutableNotificationContent()
+        content.title = ""
+        content.body = "You exchanged $\(String(format: "%.2f", usdAmount)) with @\(username)"
+        content.sound = .default
 
-func sendExchangeNotification(usdAmount: Double, username: String) {
-    let content = UNMutableNotificationContent()
-    content.title = ""
-    content.body = "You exchanged $\(String(format: "%.2f", usdAmount)) with @\(username)"
-    content.sound = .default
-
-    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
-    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-    UNUserNotificationCenter.current().add(request)
+        // Bazen 0.5s çok hızlı algılanıp iptal edilebilir, garantilemek için 1.0 saniye.
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1.0, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
 }
 
 // MARK: - Main Screen
 struct BalanceView: View {
     @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = false
     
-    // Uygulama kapandığında sıfırlanmaması için AppStorage kullanıldı
     @AppStorage("userBalance") private var balance: Double = 0.10
     @AppStorage("userCoins") private var coins: Int = 2888
     @AppStorage("userRewardsReceived") private var rewardsReceived: Double = 87598.45
 
     @State private var showSettings: Bool = false
     @State private var showExchangeSheet: Bool = false
-    @State private var notificationDelegate = NotificationDelegate()
 
     var body: some View {
         ZStack {
@@ -312,8 +319,8 @@ struct BalanceView: View {
         }
         .preferredColorScheme(prefersDarkMode ? .dark : .light)
         .onAppear {
-            UNUserNotificationCenter.current().delegate = notificationDelegate
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+            // Bildirim delegesi uygulama başlarken güvenli hafızaya kuruluyor
+            NotificationManager.shared.setup()
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
@@ -327,7 +334,7 @@ struct BalanceView: View {
         .sheet(isPresented: $showExchangeSheet) {
             ExchangeView(availableCoins: coins) { amount, username, usdAmount in
                 coins -= amount
-                sendExchangeNotification(usdAmount: usdAmount, username: username)
+                NotificationManager.shared.sendExchangeNotification(usdAmount: usdAmount, username: username)
             }
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
@@ -387,7 +394,7 @@ struct BalanceView: View {
             }
             .font(.system(size: 12))
 
-            // USD değeri 36 -> 44 yapılarak büyütüldü, ok simgesi hafif küçültüldü
+            // BÜYÜTÜLMÜŞ USD DEĞERİ (44 font)
             HStack(spacing: 6) {
                 Text(String(format: "%.2f", balance))
                     .font(.system(size: 44, weight: .semibold))
@@ -462,7 +469,7 @@ struct BalanceView: View {
             Button {
                 showExchangeSheet = true
             } label: {
-                // Exchange boyutu çok az büyütüldü (font: 14 -> 15, padding: 13 -> 14.5)
+                // BÜYÜTÜLMÜŞ EXCHANGE BUTONU
                 Text("Exchange")
                     .font(.system(size: 15, weight: .medium))
                     .frame(maxWidth: .infinity)
@@ -499,7 +506,7 @@ struct BalanceView: View {
         return LazyVGrid(columns: columns, spacing: 20) {
             ForEach(items, id: \.label) { item in
                 VStack(spacing: 10) {
-                    // Simge kutusu (60 -> 52) ve ikon boyutu (24 -> 20) hafifçe küçültüldü
+                    // KÜÇÜLTÜLMÜŞ SİMGELER
                     ZStack(alignment: .topTrailing) {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(Color.gray.opacity(0.12))
