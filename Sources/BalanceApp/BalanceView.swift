@@ -1,3 +1,6 @@
+Harika bir fikir! Görseldeki (image.png) özel uyarı (alert) penceresini ekledim ve içerisine tam istediğin gibi mavi/pembe arka planlı üst üste binen coin SVG tasarımını yerleştirdim.
+Ayrıca "Review exchange" butonunu sayfanın en altına, her zaman görünür olacak şekilde sabitledim. Böylece klavye açıkken veya değerleri girdikten sonra butona basmak için aşağı kaydırmana gerek kalmayacak.
+İşte güncellenmiş kodun tam hali. Direkt kopyalayıp projene yapıştırabilirsin:
 import SwiftUI
 import UserNotifications
 
@@ -7,7 +10,7 @@ extension Color {
     static let adaptiveCard = Color(.secondarySystemBackground)
     static let adaptiveBackground = Color(.systemBackground)
 
-    // Coin colors (from the provided SVG)
+    // Coin colors
     static let coinLayer1 = Color(red: 255/255, green: 184/255, blue: 77/255)  // FFB84D
     static let coinLayer2 = Color(red: 255/255, green: 222/255, blue: 85/255)  // FFDE55
     static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)  // F7A80F
@@ -155,6 +158,108 @@ struct TikTokCoinIcon: View {
     }
 }
 
+// MARK: - Custom Composite Coin Icon for Alert
+struct CompositeCoinAlertIcon: View {
+    var body: some View {
+        ZStack {
+            // Light Blue Circle
+            Circle()
+                .fill(Color(red: 219/255, green: 240/255, blue: 252/255))
+                .frame(width: 54, height: 54)
+                .offset(x: -20)
+            
+            // Light Pink Circle
+            Circle()
+                .fill(Color(red: 253/255, green: 228/255, blue: 235/255))
+                .frame(width: 54, height: 54)
+                .offset(x: 20)
+            
+            // Center Coin with White Border
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 48, height: 48)
+                
+                TikTokCoinIcon(size: 42)
+            }
+        }
+        .frame(height: 60)
+    }
+}
+
+// MARK: - Custom Alert View
+struct CustomExchangeAlert: View {
+    let amount: Int
+    let total: Double
+    let onCancel: () -> Void
+    let onComplete: () -> Void
+
+    var body: some View {
+        ZStack {
+            // Arka plan karartma
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onCancel()
+                }
+            
+            VStack(spacing: 0) {
+                // Görseldeki Kompozit İkon
+                CompositeCoinAlertIcon()
+                    .padding(.top, 28)
+                    .padding(.bottom, 16)
+                
+                // Başlık
+                Text("Complete exchange for\n\(amount.formatted()) credits?")
+                    .font(.system(size: 20, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                
+                // Mesaj
+                Text("$\(String(format: "%.2f", total)) will be deducted from your\navailable USD balance.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 28)
+                
+                Divider()
+                
+                // Butonlar
+                HStack(spacing: 0) {
+                    Button {
+                        onCancel()
+                    } label: {
+                        Text("Go back")
+                            .font(.system(size: 17, weight: .regular))
+                            .foregroundStyle(.blue)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    
+                    Divider()
+                    
+                    Button {
+                        onComplete()
+                    } label: {
+                        Text("Complete")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.brandAccent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(height: 50)
+            }
+            .background(Color.adaptiveBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .frame(maxWidth: 320)
+            // Alert belirdiğinde animasyon efekti için
+            .transition(.scale(scale: 1.1).combined(with: .opacity))
+        }
+        .zIndex(100) // Her şeyin üstünde olmasını sağlar
+    }
+}
+
 // MARK: - Notifications
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(
@@ -259,7 +364,7 @@ struct BalanceView: View {
                     .font(.system(size: 20, weight: .regular))
                     .foregroundStyle(.primary)
             }
-            .buttonStyle(.plain) // Butonun mavi olmasını engeller
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -462,6 +567,24 @@ struct ExchangeView: View {
                 } else {
                     formView
                 }
+                
+                // Görseldeki Custom Alert Burada Devreye Giriyor
+                if showConfirm {
+                    CustomExchangeAlert(
+                        amount: amountValue,
+                        total: total,
+                        onCancel: {
+                            withAnimation(.easeInOut(duration: 0.2)) { showConfirm = false }
+                        },
+                        onComplete: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showConfirm = false
+                                didSend = true
+                                onSent(amountValue, selectedUsername ?? "", total)
+                            }
+                        }
+                    )
+                }
             }
             .navigationTitle("Exchange")
             .navigationBarTitleDisplayMode(.inline)
@@ -472,17 +595,7 @@ struct ExchangeView: View {
                     }
                 }
             }
-            .alert("Complete exchange for \(amountValue) coins?", isPresented: $showConfirm) {
-                Button("Go back", role: .cancel) {}
-                Button("Complete") {
-                    onSent(amountValue, selectedUsername ?? "", total)
-                    withAnimation { didSend = true }
-                }
-            } message: {
-                Text("$\(String(format: "%.2f", total)) will be deducted from your available USD balance.")
-            }
             .onAppear {
-                // Sayfa açılır açılmaz search alanına odaklan ve klavyeyi aç
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     focusedField = .search
                 }
@@ -492,11 +605,22 @@ struct ExchangeView: View {
     }
 
     private var formView: some View {
-        ScrollView {
-            if selectedUsername == nil {
-                searchStepView
-            } else {
-                amountStepView
+        VStack(spacing: 0) {
+            ScrollView {
+                if selectedUsername == nil {
+                    searchStepView
+                } else {
+                    amountStepView
+                }
+            }
+            
+            // "Review exchange" butonu artık ScrollView dışında!
+            // Aşağıya sabitlendiği için kaydırma gerektirmez.
+            if selectedUsername != nil {
+                reviewExchangeButton
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Color.adaptiveBackground)
             }
         }
     }
@@ -521,13 +645,9 @@ struct ExchangeView: View {
             .background(Color.adaptiveCard)
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Yazı yazıldıkça beliren canlı, tıklanabilir profil
             if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                 Button {
-                    // Profile tıklanınca ismi ayarla ve bakiye kısmına geç
                     selectedUsername = searchText.trimmingCharacters(in: .whitespaces)
-                    
-                    // Geçişte klavyenin yeni alana anında odaklanmasını sağla
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         focusedField = .amount
                     }
@@ -548,7 +668,7 @@ struct ExchangeView: View {
                     .background(Color.adaptiveCard)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .buttonStyle(.plain) // Buton animasyonu ve renk uyumu için
+                .buttonStyle(.plain)
             }
             
             Spacer()
@@ -559,7 +679,6 @@ struct ExchangeView: View {
     // MARK: 2. Adım: Bakiye (Miktar) Girme Görünümü
     private var amountStepView: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Seçilen kullanıcının göründüğü alan
             HStack(spacing: 12) {
                 DefaultAvatarIcon(size: 48)
                 VStack(alignment: .leading, spacing: 2) {
@@ -572,7 +691,6 @@ struct ExchangeView: View {
                 }
                 Spacer()
                 
-                // İptal edip aramaya geri dönme butonu
                 Button {
                     selectedUsername = nil
                     amountText = ""
@@ -594,14 +712,13 @@ struct ExchangeView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
 
-            // Bakiye giriş alanı (Buraya geçer geçmez klavye otomatik odaklanacak)
             HStack {
                 TikTokCoinIcon(size: 22)
                 TextField("0", text: $amountText)
                     .keyboardType(.numberPad)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .focused($focusedField, equals: .amount) // Otomatik odaklanan alan
+                    .focused($focusedField, equals: .amount)
                     .onChange(of: amountText) { newValue in
                         let digitsOnly = newValue.filter(\.isNumber)
                         if let val = Int(digitsOnly), val > availableCoins {
@@ -659,23 +776,32 @@ struct ExchangeView: View {
                 .background(Color.adaptiveCard)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-
-            Button {
-                guard amountValue > 0, amountValue <= availableCoins else { return }
-                showConfirm = true
-            } label: {
-                Text("Review exchange")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(amountValue > 0 && amountValue <= availableCoins ? Color.brandAccent : Color.gray.opacity(0.3))
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .disabled(!(amountValue > 0 && amountValue <= availableCoins))
-            .padding(.top, 6)
+            
+            Spacer(minLength: 20)
         }
         .padding(20)
+    }
+
+    // Alt kısma sabitlenmiş Buton
+    private var reviewExchangeButton: some View {
+        Button {
+            guard amountValue > 0, amountValue <= availableCoins else { return }
+            // İşlemi onaylarken klavyeyi kapat
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showConfirm = true
+            }
+        } label: {
+            Text("Review exchange")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(amountValue > 0 && amountValue <= availableCoins ? Color.brandAccent : Color.gray.opacity(0.3))
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .disabled(!(amountValue > 0 && amountValue <= availableCoins))
     }
 
     private var successView: some View {
@@ -808,3 +934,4 @@ struct SettingsView: View {
 #Preview {
     BalanceView()
 }
+
