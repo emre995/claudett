@@ -1,53 +1,48 @@
 import SwiftUI
 
-// MARK: - Renkler (HTML tasarımıyla uyumlu)
+// MARK: - Renkler
 extension Color {
     static let brandAccent = Color(red: 254/255, green: 44/255, blue: 85/255) // #FE2C55
-    static let cardGradientStart = Color(red: 235/255, green: 243/255, blue: 255/255) // #EBF3FF
-    static let cardGradientMid = Color(red: 248/255, green: 249/255, blue: 250/255)   // #F8F9FA
-    static let cardGradientEnd = Color(red: 255/255, green: 239/255, blue: 241/255)   // #FFEFF1
-    static let gridBackground = Color(red: 249/255, green: 250/255, blue: 251/255)    // gray-50
-    static let softButtonGray = Color(red: 241/255, green: 241/255, blue: 242/255)    // #F1F1F2
+    static let gridBackground = Color(red: 249/255, green: 250/255, blue: 251/255)
+    static let softButtonGray = Color(red: 241/255, green: 241/255, blue: 242/255)
+    static let cardBackground = Color(red: 250/255, green: 246/255, blue: 247/255)
 }
 
-// MARK: - TikTok Coin Şekli (SVG'den SwiftUI Path'e uyarlanmıştır)
-struct TikTokCoinShape: View {
+// MARK: - Özgün Coin İkonu
+struct CoinIcon: View {
+    var size: CGFloat = 18
+
     var body: some View {
         ZStack {
-            // Dış Çemberler ve Katmanlar (Gradient / Renk geçişleri yerine SwiftUI shape path'leri)
             Circle()
-                .fill(Color(red: 76/255, green: 38/255, blue: 0/255)) // #FFB84D arka plan tonu
-            
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 255/255, green: 200/255, blue: 87/255),
+                                 Color(red: 247/255, green: 148/255, blue: 15/255)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
             Circle()
-                .inset(by: 1)
-                .fill(Color(red: 255/255, green: 222/255, blue: 85/255)) // #FFDE55
-            
-            Circle()
-                .inset(by: 5)
-                .fill(Color(red: 247/255, green: 163/255, blue: 0/255)) // #F7A300
-            
-            Circle()
-                .inset(by: 5.2)
-                .fill(Color(red: 240/255, green: 146/255, blue: 7/255)) // #F09207
-            
-            // TikTok Nota İşareti / Simgesi (SVG Path verisi tabanlı)
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-                
-                Path { path in
-                    path.move(to: CGPoint(x: w * 0.715, y: w * 0.378))
-                    path.addCurve(to: CGPoint(x: w * 0.593, y: w * 0.258), control1: CGPoint(x: w * 0.715, y: w * 0.378), control2: CGPoint(x: w * 0.671, y: w * 0.27))
-                    path.addLine(to: CGPoint(x: w * 0.512, y: w * 0.258))
-                    path.addLine(to: CGPoint(x: w * 0.512, y: w * 0.584))
-                    path.addCurve(to: CGPoint(x: w * 0.438, y: w * 0.657), control1: CGPoint(x: w * 0.512, y: w * 0.624), control2: CGPoint(x: w * 0.478, y: w * 0.657))
-                    path.addArc(center: CGPoint(x: w * 0.402, y: w * 0.622), radius: w * 0.073, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false)
-                    path.addArc(center: CGPoint(x: w * 0.575, y: w * 0.45), radius: w * 0.12, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: false)
-                }
-                .fill(Color.white)
+                .stroke(Color.white.opacity(0.6), lineWidth: size * 0.04)
+                .padding(size * 0.08)
+            Path { path in
+                let w = size
+                path.move(to: CGPoint(x: w * 0.32, y: w * 0.28))
+                path.addCurve(
+                    to: CGPoint(x: w * 0.68, y: w * 0.42),
+                    control1: CGPoint(x: w * 0.5, y: w * 0.18),
+                    control2: CGPoint(x: w * 0.68, y: w * 0.3)
+                )
+                path.addCurve(
+                    to: CGPoint(x: w * 0.32, y: w * 0.72),
+                    control1: CGPoint(x: w * 0.68, y: w * 0.62),
+                    control2: CGPoint(x: w * 0.5, y: w * 0.8)
+                )
             }
-            .padding(8)
+            .stroke(Color.white, style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round))
         }
+        .frame(width: size, height: size)
     }
 }
 
@@ -56,9 +51,10 @@ struct BalanceView: View {
     @State private var balance: Double = 0.10
     @State private var coins: Int = 0
     @State private var rewardsReceived: Double = 87598.45
+    @State private var showSettings: Bool = false
+    @State private var showExchangeSheet: Bool = false
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
-    @State private var showSettings: Bool = false
 
     var body: some View {
         ZStack {
@@ -70,11 +66,8 @@ struct BalanceView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         balanceSection
-
                         transactionsCard
-
                         actionButtons
-
                         quickActionsGrid
                     }
                     .padding(.horizontal, 16)
@@ -84,16 +77,21 @@ struct BalanceView: View {
             if showToast {
                 VStack {
                     Spacer()
-                    Text(toastText)
-                        .font(.subheadline)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.black.opacity(0.8))
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
-                        .padding(.bottom, 40)
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.white)
+                        Text(toastText)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.black.opacity(0.85))
+                    .clipShape(Capsule())
+                    .padding(.bottom, 40)
                 }
-                .transition(.opacity)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(1)
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -102,6 +100,21 @@ struct BalanceView: View {
                 coins: $coins,
                 rewardsReceived: $rewardsReceived
             )
+        }
+        .sheet(isPresented: $showExchangeSheet) {
+            ExchangeView(availableCoins: coins) { amount, username in
+                coins -= amount
+                showExchangeSheet = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    toastText = "Exchanged \(amount) coins to @\(username)"
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showToast = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                        withAnimation { showToast = false }
+                    }
+                }
+            }
         }
     }
 
@@ -171,10 +184,7 @@ struct BalanceView: View {
 
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    // SVG tabanlı TikTok Coin simgesi ile değiştirildi
-                    TikTokCoinShape()
-                        .frame(width: 20, height: 20)
-                    
+                    CoinIcon(size: 18)
                     Text("Coins")
                         .foregroundStyle(.gray)
                     Text("\(coins)")
@@ -185,20 +195,15 @@ struct BalanceView: View {
 
                 Text("|").foregroundStyle(.gray.opacity(0.4))
 
-                Button {
-                    withAnimation { coins += 50 }
-                    pulseToast("+50 coin eklendi")
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "gift.fill")
-                            .font(.system(size: 11))
-                        Text("Get Coins")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 8))
-                    }
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.brandAccent)
+                HStack(spacing: 4) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 11))
+                    Text("Get Coins")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8))
                 }
+                .font(.system(size: 12))
+                .foregroundStyle(Color.brandAccent)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -210,60 +215,46 @@ struct BalanceView: View {
             .padding(.top, 4)
         }
         .padding(.vertical, 16)
-        .onTapGesture {
-            balance += Double.random(in: 0.01...0.05)
-        }
     }
 
-    // MARK: Transactions kartı (tutarlı gradient)
+    // MARK: Transactions kartı
     private var transactionsCard: some View {
         HStack {
             Text("Transactions")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.black)
 
             Spacer()
 
-            HStack(spacing: 5) {
-                Text("Rewards received:")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.gray)
-                Text("$\(String(format: "%.2f", rewardsReceived))")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.75))
-                Circle()
-                    .fill(Color.brandAccent)
-                    .frame(width: 6, height: 6)
-                Image(systemName: "chevron.right")
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Rewards received")
                     .font(.system(size: 10))
                     .foregroundStyle(.gray)
+                Text("$\(String(format: "%.2f", rewardsReceived))")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.brandAccent)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundStyle(.gray)
+                .padding(.leading, 6)
         }
-        .padding(14)
-        .background(
-            LinearGradient(
-                colors: [Color.cardGradientStart, Color.cardGradientMid, Color.cardGradientEnd],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
+        .padding(16)
+        .background(Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16).stroke(Color.brandAccent.opacity(0.15), lineWidth: 1)
         )
         .padding(.top, 4)
         .padding(.bottom, 10)
-        .onTapGesture {
-            rewardsReceived += 1.5
-            pulseToast("Yeni ödül eklendi")
-        }
     }
 
     // MARK: Exchange / Withdraw
     private var actionButtons: some View {
         VStack(spacing: 10) {
             Button {
-                pulseToast("Exchange açıldı (demo)")
+                showExchangeSheet = true
             } label: {
                 Text("Exchange")
                     .font(.system(size: 14))
@@ -274,17 +265,13 @@ struct BalanceView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            Button {
-                pulseToast("Withdraw açıldı (demo)")
-            } label: {
-                Text("Withdraw")
-                    .font(.system(size: 14))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(Color.softButtonGray)
-                    .foregroundStyle(.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
+            Text("Withdraw")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(Color.softButtonGray)
+                .foregroundStyle(.black)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .padding(.bottom, 20)
     }
@@ -299,29 +286,25 @@ struct BalanceView: View {
             ("calendar.badge.checkmark", "Subscriptions\nManager")
         ]
 
-        return LazyVGrid(columns: columns, spacing: 22) {
+        return LazyVGrid(columns: columns, spacing: 24) {
             ForEach(items, id: \.1) { item in
-                Button {
-                    pulseToast("\(item.1.replacingOccurrences(of: "\n", with: " ")) açıldı (demo)")
-                } label: {
-                    VStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.white)
-                            .frame(width: 48, height: 48)
-                            .overlay(
-                                Image(systemName: item.0)
-                                    .foregroundStyle(.black.opacity(0.75))
-                                    .font(.system(size: 16))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
-                        Text(item.1)
-                            .font(.system(size: 11))
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.black.opacity(0.75))
-                    }
+                VStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.white)
+                        .frame(width: 62, height: 62)
+                        .overlay(
+                            Image(systemName: item.0)
+                                .foregroundStyle(.black.opacity(0.75))
+                                .font(.system(size: 24))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16).stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
+                    Text(item.1)
+                        .font(.system(size: 12))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.black.opacity(0.75))
                 }
             }
         }
@@ -331,13 +314,186 @@ struct BalanceView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .padding(.bottom, 24)
     }
+}
 
-    private func pulseToast(_ text: String) {
-        toastText = text
-        withAnimation { showToast = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation { showToast = false }
+// MARK: - Exchange Ekranı
+struct ExchangeView: View {
+    let availableCoins: Int
+    var onSent: (Int, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var amountText: String = ""
+    @State private var username: String = ""
+    @State private var errorText: String? = nil
+    @State private var didSend: Bool = false
+    @FocusState private var focusedField: Field?
+
+    enum Field { case amount, username }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.white.ignoresSafeArea()
+
+                if didSend {
+                    successView
+                } else {
+                    formView
+                }
+            }
+            .navigationTitle("Exchange")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if !didSend {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("İptal") { dismiss() }
+                    }
+                }
+            }
         }
+    }
+
+    private var formView: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 6) {
+                CoinIcon(size: 40)
+                Text("\(availableCoins) coin mevcut")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.gray)
+            }
+            .padding(.top, 16)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Miktar (coin)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.gray)
+
+                HStack {
+                    CoinIcon(size: 20)
+                    TextField("0", text: $amountText)
+                        .keyboardType(.numberPad)
+                        .font(.system(size: 20, weight: .semibold))
+                        .focused($focusedField, equals: .amount)
+                }
+                .padding(14)
+                .background(Color.gridBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(focusedField == .amount ? Color.brandAccent : Color.gray.opacity(0.15), lineWidth: 1.5)
+                )
+
+                Text("Kullanıcı adı")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.gray)
+                    .padding(.top, 6)
+
+                HStack(spacing: 4) {
+                    Text("@")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.gray)
+                    TextField("kullaniciadi", text: $username)
+                        .font(.system(size: 16))
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($focusedField, equals: .username)
+                }
+                .padding(14)
+                .background(Color.gridBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(focusedField == .username ? Color.brandAccent : Color.gray.opacity(0.15), lineWidth: 1.5)
+                )
+
+                if let errorText {
+                    Text(errorText)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.brandAccent)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Spacer()
+
+            Button {
+                send()
+            } label: {
+                Text("Gönder")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Color.brandAccent)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+    }
+
+    private var successView: some View {
+        VStack(spacing: 18) {
+            Spacer()
+
+            ZStack {
+                Circle()
+                    .fill(Color.brandAccent.opacity(0.12))
+                    .frame(width: 88, height: 88)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(Color.brandAccent)
+            }
+
+            Text("Gönderildi")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(.black)
+
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    CoinIcon(size: 16)
+                    Text("\(amountText) coin")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                Text("@\(username) adresine gönderildi")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.gray)
+            }
+
+            Spacer()
+
+            Button {
+                dismiss()
+            } label: {
+                Text("Tamam")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Color.softButtonGray)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+    }
+
+    private func send() {
+        guard let amount = Int(amountText), amount > 0 else {
+            errorText = "Geçerli bir miktar gir"
+            return
+        }
+        guard amount <= availableCoins else {
+            errorText = "Yetersiz coin"
+            return
+        }
+        guard !username.trimmingCharacters(in: .whitespaces).isEmpty else {
+            errorText = "Kullanıcı adı gir"
+            return
+        }
+        errorText = nil
+        withAnimation { didSend = true }
+        onSent(amount, username)
     }
 }
 
