@@ -1,7 +1,7 @@
 /*
  Bu dosya tamamen geçerli bir Swift kodudur.
- Bildirim delegesinin (delegate) AppStorage güncellemelerinde kaybolmaması için Singleton (NotificationManager) yapısına geçilmiştir.
- Güvenle derleyebilirsin.
+ Bildirim delegesinin anında atanması ve iOS güvenlik kısıtlamalarına karşı 
+ NotificationManager init() bloğuyla güçlendirilmiştir.
 */
 
 import SwiftUI
@@ -255,15 +255,23 @@ struct CustomExchangeAlert: View {
 }
 
 // MARK: - Notification Manager (Singleton)
-// ÖNEMLİ DÜZELTME: SwiftUI'nin AppStorage yenilemelerinde delegate'i sıfırlamaması için tekil (singleton) yapıya geçirildi.
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
     
-    private override init() { super.init() }
-    
-    func setup() {
+    // Uygulama doğduğu an delegate atamasını yapıyoruz
+    private override init() {
+        super.init()
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+    
+    func askForPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Bildirim izni hatası: \(error.localizedDescription)")
+            } else {
+                print("Bildirim izni: \(granted ? "VERİLDİ" : "REDDEDİLDİ")")
+            }
+        }
     }
     
     func userNotificationCenter(
@@ -271,20 +279,25 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Ön planda (uygulama açıkken) banner ve ses tetiklemesi
+        // iOS 14+ için .banner kullanılır, .alert eski sürümler içindir.
         completionHandler([.banner, .sound, .list])
     }
     
     func sendExchangeNotification(usdAmount: Double, username: String) {
         let content = UNMutableNotificationContent()
-        content.title = ""
+        content.title = "Exchange Completed" // Bazı iOS sürümleri boş başlığı engeller, başlık eklendi.
         content.body = "You exchanged $\(String(format: "%.2f", usdAmount)) with @\(username)"
         content.sound = .default
 
-        // Bazen 0.5s çok hızlı algılanıp iptal edilebilir, garantilemek için 1.0 saniye.
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1.0, repeats: false)
+        // Gecikmeyi çok azalttık (0.1 sn) anında düşmesi için
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Bildirim kuyruğa eklenemedi: \(error.localizedDescription)")
+            }
+        }
     }
 }
 
@@ -319,8 +332,8 @@ struct BalanceView: View {
         }
         .preferredColorScheme(prefersDarkMode ? .dark : .light)
         .onAppear {
-            // Bildirim delegesi uygulama başlarken güvenli hafızaya kuruluyor
-            NotificationManager.shared.setup()
+            // View ilk yüklendiğinde izni sor
+            NotificationManager.shared.askForPermission()
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
@@ -394,7 +407,6 @@ struct BalanceView: View {
             }
             .font(.system(size: 12))
 
-            // BÜYÜTÜLMÜŞ USD DEĞERİ (44 font)
             HStack(spacing: 6) {
                 Text(String(format: "%.2f", balance))
                     .font(.system(size: 44, weight: .semibold))
@@ -469,7 +481,6 @@ struct BalanceView: View {
             Button {
                 showExchangeSheet = true
             } label: {
-                // BÜYÜTÜLMÜŞ EXCHANGE BUTONU
                 Text("Exchange")
                     .font(.system(size: 15, weight: .medium))
                     .frame(maxWidth: .infinity)
@@ -506,7 +517,6 @@ struct BalanceView: View {
         return LazyVGrid(columns: columns, spacing: 20) {
             ForEach(items, id: \.label) { item in
                 VStack(spacing: 10) {
-                    // KÜÇÜLTÜLMÜŞ SİMGELER
                     ZStack(alignment: .topTrailing) {
                         RoundedRectangle(cornerRadius: 14)
                             .fill(Color.gray.opacity(0.12))
