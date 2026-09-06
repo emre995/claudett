@@ -170,154 +170,15 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-func sendExchangeNotification(amount: Int, username: String) {
+func sendExchangeNotification(usdAmount: Double) {
     let content = UNMutableNotificationContent()
-    content.title = "Exchange completed"
-    content.body = "You exchanged \(amount) credits with @\(username)"
+    content.title = "TikTok"
+    content.body = "-US$\(String(format: "%.2f", usdAmount))"
     content.sound = .default
 
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
     let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
     UNUserNotificationCenter.current().add(request)
-}
-
-// MARK: - Custom Numeric Keypad Sheet
-struct CustomKeypadView: View {
-    @Binding var amountText: String
-    let maxCoins: Int
-    var onDone: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Credit amount")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button("All") {
-                    amountText = "\(maxCoins)"
-                }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.brandAccent)
-                
-                Button {
-                    onDone()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.primary)
-                }
-                .padding(.leading, 12)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 12)
-
-            HStack(spacing: 8) {
-                TikTokCoinIcon(size: 24)
-                Text(amountText.isEmpty ? "0" : amountText)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(.primary)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Color.adaptiveCard)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.brandAccent.opacity(0.3), lineWidth: 1)
-            )
-            .padding(.horizontal, 16)
-
-            HStack {
-                let currentVal = Int(amountText) ?? 0
-                let usdVal = Double(currentVal) * 0.014
-                Text("Available to exchange: \(maxCoins) credits • $\(String(format: "%.2f", usdVal))")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
-
-            VStack(spacing: 10) {
-                keypadRow(keys: ["1", "2", "3", "delete"])
-                keypadRow(keys: ["4", "5", "6", "000"])
-                keypadRow(keys: ["7", "8", "9", "0"])
-            }
-            .padding(.horizontal, 16)
-
-            Button {
-                onDone()
-            } label: {
-                Text("Done")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(Color.brandAccent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-        }
-        .background(Color.adaptiveBackground)
-    }
-
-    private func keypadRow(keys: [String]) -> some View {
-        HStack(spacing: 10) {
-            ForEach(keys, id: \.self) { key in
-                Button {
-                    handleKeyPress(key)
-                } label: {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.adaptiveCard)
-                        
-                        if key == "delete" {
-                            Image(systemName: "delete.left.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        } else {
-                            Text(key)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .frame(height: 52)
-                }
-            }
-        }
-    }
-
-    private func handleKeyPress(_ key: String) {
-        if key == "delete" {
-            if !amountText.isEmpty {
-                amountText.removeLast()
-            }
-        } else if key == "000" {
-            if !amountText.isEmpty && amountText != "0" {
-                let newVal = (Int(amountText) ?? 0) * 1000
-                if newVal <= maxCoins {
-                    amountText = "\(newVal)"
-                }
-            }
-        } else {
-            if amountText == "0" {
-                amountText = key
-            } else {
-                let potentialText = amountText + key
-                if let val = Int(potentialText), val <= maxCoins {
-                    amountText = potentialText
-                } else if Int(potentialText) == nil && potentialText.count <= 10 {
-                    amountText = potentialText
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Main Screen
@@ -364,9 +225,9 @@ struct BalanceView: View {
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
         .sheet(isPresented: $showExchangeSheet) {
-            ExchangeView(availableCoins: coins) { amount, username in
+            ExchangeView(availableCoins: coins) { amount, username, usdAmount in
                 coins -= amount
-                sendExchangeNotification(amount: amount, username: username)
+                sendExchangeNotification(usdAmount: usdAmount)
             }
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
@@ -565,7 +426,7 @@ struct BalanceView: View {
 // MARK: - Exchange Screen
 struct ExchangeView: View {
     let availableCoins: Int
-    var onSent: (Int, String) -> Void
+    var onSent: (Int, String, Double) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
@@ -575,7 +436,6 @@ struct ExchangeView: View {
     @FocusState private var isSearchFieldFocused: Bool
     @State private var showConfirm: Bool = false
     @State private var didSend: Bool = false
-    @State private var showCustomKeypad: Bool = false
 
     private let coinToUSDRate: Double = 0.014
     private let feeRate: Double = 0.009
@@ -608,17 +468,11 @@ struct ExchangeView: View {
             .alert("Complete exchange for \(amountValue) credits?", isPresented: $showConfirm) {
                 Button("Go back", role: .cancel) {}
                 Button("Complete") {
-                    onSent(amountValue, foundUsername ?? "")
+                    onSent(amountValue, foundUsername ?? "", total)
                     withAnimation { didSend = true }
                 }
             } message: {
                 Text("$\(String(format: "%.2f", total)) will be deducted from your available USD balance.")
-            }
-            .sheet(isPresented: $showCustomKeypad) {
-                CustomKeypadView(amountText: $amountText, maxCoins: availableCoins) {
-                    showCustomKeypad = false
-                }
-                .presentationDetents([.height(380)])
             }
         }
         .tint(Color.brandAccent)
@@ -685,22 +539,36 @@ struct ExchangeView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 6)
 
-                    Button {
-                        showCustomKeypad = true
-                    } label: {
-                        HStack {
-                            TikTokCoinIcon(size: 22)
-                            Text(amountText.isEmpty ? "0" : amountText)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Text("Max: \(availableCoins)")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.brandAccent)
-                        }
-                        .padding(14)
-                        .background(Color.adaptiveCard)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    HStack {
+                        TikTokCoinIcon(size: 22)
+                        TextField("0", text: $amountText)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .onChange(of: amountText) { _, newValue in
+                                let digitsOnly = newValue.filter(\.isNumber)
+                                if let val = Int(digitsOnly), val > availableCoins {
+                                    amountText = "\(availableCoins)"
+                                } else {
+                                    amountText = digitsOnly
+                                }
+                            }
+                        Spacer()
+                        Text("Max: \(availableCoins)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.brandAccent)
+                            .onTapGesture {
+                                amountText = "\(availableCoins)"
+                            }
+                    }
+                    .padding(14)
+                    .background(Color.adaptiveCard)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    if amountValue > 0 {
+                        Text("\(amountValue) coin ($\(String(format: "%.2f", exchangeValue)))")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                     }
 
                     if amountValue > 0 {
