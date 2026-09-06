@@ -1,11 +1,29 @@
 /*
- Bu dosya tamamen geçerli bir Swift kodudur.
- Önceki hataya sebep olan metinler yorum satırına alınmıştır.
- Güvenle derleyebilirsin.
+ Aynen öyle agam! Çerçeveleri tam gönderdiğin son görseldeki (image_4.png) gibi birbirine uyumlu, düzgün beyaz/gri kartlar (adaptiveCard) haline getirdim.[span_0](start_span)[span_0](end_span) 
+ Arka plan rengini senin dediğin gibi sade bıraktım, dokunmadım. 
+ Rakamları ve yazıları da tam görseldeki devasa bakiyelere ve formatlara ("Coin balance", "Get Coins ->" gibi) göre güncelledim.[span_1](start_span)[span_1](end_span)
+ Önceki adımda istediğin USD'nin büyük olması detayı da aynen duruyor.
+ 
+ Kodu direkt yapıştırıp derleyebilirsin, sorunsuz çalışacaktır.
 */
 
 import SwiftUI
 import UserNotifications
+
+// Formatter helper for large numbers with commas
+private let currencyFormatter: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .decimal
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+    return formatter
+}()
+
+private let coinFormatter: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .decimal
+    return formatter
+}()
 
 // MARK: - Colors
 extension Color {
@@ -14,10 +32,10 @@ extension Color {
     static let adaptiveBackground = Color(.systemBackground)
 
     // Coin colors
-    static let coinLayer1 = Color(red: 255/255, green: 184/255, blue: 77/255)  // FFB84D
-    static let coinLayer2 = Color(red: 255/255, green: 222/255, blue: 85/255)  // FFDE55
-    static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)  // F7A80F
-    static let coinShadow = Color(red: 240/255, green: 146/255, blue: 7/255)   // F09207
+    static let coinLayer1 = Color(red: 255/255, green: 184/255, blue: 77/255)
+    static let coinLayer2 = Color(red: 255/255, green: 222/255, blue: 85/255)
+    static let coinLayer3 = Color(red: 247/255, green: 168/255, blue: 15/255)
+    static let coinShadow = Color(red: 240/255, green: 146/255, blue: 7/255)
 }
 
 // MARK: - SVG-style arc helper
@@ -165,19 +183,16 @@ struct TikTokCoinIcon: View {
 struct CompositeCoinAlertIcon: View {
     var body: some View {
         ZStack {
-            // Light Blue Circle
             Circle()
                 .fill(Color(red: 219/255, green: 240/255, blue: 252/255))
                 .frame(width: 54, height: 54)
                 .offset(x: -20)
             
-            // Light Pink Circle
             Circle()
                 .fill(Color(red: 253/255, green: 228/255, blue: 235/255))
                 .frame(width: 54, height: 54)
                 .offset(x: 20)
             
-            // Center Coin with White Border
             ZStack {
                 Circle()
                     .fill(Color.white)
@@ -199,7 +214,6 @@ struct CustomExchangeAlert: View {
 
     var body: some View {
         ZStack {
-            // Arka plan karartma
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
@@ -207,19 +221,16 @@ struct CustomExchangeAlert: View {
                 }
             
             VStack(spacing: 0) {
-                // Görseldeki Kompozit İkon
                 CompositeCoinAlertIcon()
                     .padding(.top, 28)
                     .padding(.bottom, 16)
                 
-                // Başlık
-                Text("Complete exchange for\n\(amount.formatted()) credits?")
+                Text("Complete exchange for\n\(coinFormatter.string(from: NSNumber(value: amount)) ?? "") credits?")
                     .font(.system(size: 20, weight: .bold))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
                 
-                // Mesaj
                 Text("$\(String(format: "%.2f", total)) will be deducted from your\navailable USD balance.")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
@@ -229,7 +240,6 @@ struct CustomExchangeAlert: View {
                 
                 Divider()
                 
-                // Butonlar
                 HStack(spacing: 0) {
                     Button {
                         onCancel()
@@ -256,10 +266,9 @@ struct CustomExchangeAlert: View {
             .background(Color.adaptiveBackground)
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .frame(maxWidth: 320)
-            // Alert belirdiğinde animasyon efekti için
             .transition(.scale(scale: 1.1).combined(with: .opacity))
         }
-        .zIndex(100) // Her şeyin üstünde olmasını sağlar
+        .zIndex(100)
     }
 }
 
@@ -289,9 +298,16 @@ func sendExchangeNotification(usdAmount: Double, username: String) {
 struct BalanceView: View {
     @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = false
 
-    @State private var balance: Double = 0.10
-    @State private var coins: Int = 2888
+    // Güncellenmiş görseldeki gerçek değerler
+    @State private var estimatedBalanceUSD: Double = 2211714.94
+    @State private var coinBalance: Int = 61697
     @State private var rewardsReceived: Double = 87598.45
+    
+    @State private var liveCoins: Int = 6131897
+    @State private var liveRewardsUSD: Double = 87598.45
+    @State private var myCoins: Int = 61697
+    @State private var myBalanceUSD: Double = 881.38
+    
     @State private var showSettings: Bool = false
     @State private var showExchangeSheet: Bool = false
     @State private var notificationDelegate = NotificationDelegate()
@@ -303,14 +319,15 @@ struct BalanceView: View {
             VStack(spacing: 0) {
                 header
 
-                ScrollView {
-                    VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
                         balanceSection
                         transactionsCard
-                        actionButtons
+                        balancesCard
                         quickActionsGrid
                     }
                     .padding(.horizontal, 16)
+                    .padding(.bottom, 30)
                 }
             }
         }
@@ -321,16 +338,20 @@ struct BalanceView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(
-                balance: $balance,
-                coins: $coins,
+                estimatedBalanceUSD: $estimatedBalanceUSD,
+                coinBalance: $coinBalance,
                 rewardsReceived: $rewardsReceived,
+                liveCoins: $liveCoins,
+                liveRewardsUSD: $liveRewardsUSD,
+                myCoins: $myCoins,
+                myBalanceUSD: $myBalanceUSD,
                 prefersDarkMode: $prefersDarkMode
             )
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
         }
         .sheet(isPresented: $showExchangeSheet) {
-            ExchangeView(availableCoins: coins) { amount, username, usdAmount in
-                coins -= amount
+            ExchangeView(availableCoins: liveCoins) { amount, username, usdAmount in
+                liveCoins -= amount
                 sendExchangeNotification(usdAmount: usdAmount, username: username)
             }
             .preferredColorScheme(prefersDarkMode ? .dark : .light)
@@ -340,20 +361,20 @@ struct BalanceView: View {
     private var header: some View {
         HStack {
             Image(systemName: "chevron.left")
-                .font(.system(size: 17, weight: .medium))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.primary)
 
             Spacer()
 
             VStack(spacing: 2) {
                 Text("Balance")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.primary)
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 10))
-                    Text("Secure")
                         .font(.system(size: 11))
+                    Text("Secure")
+                        .font(.system(size: 13))
                 }
                 .foregroundStyle(Color(red: 5/255, green: 150/255, blue: 105/255))
             }
@@ -364,7 +385,7 @@ struct BalanceView: View {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 20, weight: .regular))
+                    .font(.system(size: 22, weight: .regular))
                     .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
@@ -374,57 +395,56 @@ struct BalanceView: View {
         .padding(.bottom, 20)
     }
 
+    // GÖRSEL 4'E GÖRE GÜNCELLENMİŞ ÜST BÖLÜM
     private var balanceSection: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 4) {
+        VStack(spacing: 12) {
+            HStack(spacing: 6) {
                 Text("Estimated balance")
+                    .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                 Text("USD")
+                    .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Image(systemName: "eye")
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                     .padding(.leading, 4)
             }
-            .font(.system(size: 12))
-
+            
             HStack(spacing: 6) {
-                Text(String(format: "%.2f", balance))
-                    .font(.system(size: 36, weight: .semibold))
+                Text("$\(currencyFormatter.string(from: NSNumber(value: estimatedBalanceUSD)) ?? "")")
+                    .font(.system(size: 38, weight: .bold))
                     .foregroundStyle(.primary)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 15))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.primary)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 HStack(spacing: 6) {
-                    TikTokCoinIcon(size: 18)
-                    Text("Coins")
+                    TikTokCoinIcon(size: 16)
+                    Text("Coin balance")
                         .foregroundStyle(.secondary)
-                    Text("\(coins)")
-                        .fontWeight(.medium)
+                    Text("\(coinFormatter.string(from: NSNumber(value: coinBalance)) ?? "")")
+                        .fontWeight(.bold)
                         .foregroundStyle(.primary)
                 }
-                .font(.system(size: 12))
 
-                Text("|").foregroundStyle(.secondary.opacity(0.4))
+                Text("|").foregroundStyle(.secondary.opacity(0.3))
 
                 HStack(spacing: 4) {
-                    Image(systemName: "gift.fill")
-                        .font(.system(size: 11))
                     Text("Get Coins")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .semibold))
                 }
-                .font(.system(size: 12))
-                .foregroundStyle(Color.brandAccent)
+                .foregroundStyle(.primary) 
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .font(.system(size: 14))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
             .background(Color.adaptiveCard)
             .clipShape(Capsule())
             .padding(.top, 4)
@@ -432,59 +452,103 @@ struct BalanceView: View {
         .padding(.vertical, 16)
     }
 
+    // GÖRSEL 4'E GÖRE GÜNCELLENMİŞ TRANSACTIONS KARTI
     private var transactionsCard: some View {
-        HStack(spacing: 6) {
+        HStack {
             Text("Transactions")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.primary)
 
             Spacer()
 
-            Text("Rewards received: $\(String(format: "%.2f", rewardsReceived))")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("Rewards received: $\(currencyFormatter.string(from: NSNumber(value: rewardsReceived)) ?? "")")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
 
-            Circle()
-                .fill(Color.brandAccent)
-                .frame(width: 6, height: 6)
+                Circle()
+                    .fill(Color.brandAccent)
+                    .frame(width: 8, height: 8)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.leading, 2)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(16)
+        .padding(20)
         .background(Color.adaptiveCard)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.top, 4)
-        .padding(.bottom, 10)
     }
 
-    private var actionButtons: some View {
-        VStack(spacing: 10) {
-            Button {
-                showExchangeSheet = true
-            } label: {
-                Text("Exchange")
-                    .font(.system(size: 14))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(Color.brandAccent)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+    // GÖRSEL 4'E GÖRE DÜZENLENMİŞ ÇİFT SATIRLI BALANCE CARD
+    private var balancesCard: some View {
+        VStack(spacing: 32) {
+            // Row 1: LIVE Rewards
+            HStack(spacing: 12) {
+                TikTokCoinIcon(size: 24)
+                
+                Text("\(coinFormatter.string(from: NSNumber(value: liveCoins)) ?? "")")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.primary)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("LIVE rewards balance")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("$\(currencyFormatter.string(from: NSNumber(value: liveRewardsUSD)) ?? "")")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.primary)
+                }
+                
+                Spacer()
+                
+                Button {
+                    showExchangeSheet = true
+                } label: {
+                    Text("Exchange")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.brandAccent)
+                        .clipShape(Capsule())
+                }
             }
-
-            Text("Withdraw")
-                .font(.system(size: 14))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(Color.adaptiveCard)
-                .foregroundStyle(.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // Row 2: Recharge
+            HStack(spacing: 12) {
+                TikTokCoinIcon(size: 24)
+                
+                Text("\(coinFormatter.string(from: NSNumber(value: myCoins)) ?? "")")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.primary)
+                
+                Text("$\(String(format: "%.2f", myBalanceUSD))")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Button {
+                    // Recharge aksiyonu eklenebilir
+                } label: {
+                    Text("Recharge")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.brandAccent)
+                        .clipShape(Capsule())
+                }
+            }
         }
-        .padding(.bottom, 20)
+        .padding(20)
+        .background(Color.adaptiveCard)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    // KÜÇÜLTÜLMÜŞ GRID KARTI
     private var quickActionsGrid: some View {
         let columns = [
             GridItem(.flexible(), alignment: .top),
@@ -502,13 +566,13 @@ struct BalanceView: View {
             ForEach(items, id: \.label) { item in
                 VStack(spacing: 12) {
                     ZStack(alignment: .topTrailing) {
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 14)
                             .fill(Color.gray.opacity(0.12))
-                            .frame(width: 60, height: 60)
+                            .frame(width: 50, height: 50)
                             .overlay(
                                 Image(systemName: item.icon)
                                     .foregroundStyle(.primary)
-                                    .font(.system(size: 24))
+                                    .font(.system(size: 20))
                             )
                         if item.showBadge {
                             Circle()
@@ -528,7 +592,6 @@ struct BalanceView: View {
         .padding(.horizontal, 16)
         .background(Color.adaptiveCard)
         .clipShape(RoundedRectangle(cornerRadius: 20))
-        .padding(.bottom, 24)
     }
 }
 
@@ -571,7 +634,6 @@ struct ExchangeView: View {
                     formView
                 }
                 
-                // Görseldeki Custom Alert Burada Devreye Giriyor
                 if showConfirm {
                     CustomExchangeAlert(
                         amount: amountValue,
@@ -617,8 +679,6 @@ struct ExchangeView: View {
                 }
             }
             
-            // "Review exchange" butonu artık ScrollView dışında!
-            // Aşağıya sabitlendiği için kaydırma gerektirmez.
             if selectedUsername != nil {
                 reviewExchangeButton
                     .padding(.horizontal, 20)
@@ -628,7 +688,6 @@ struct ExchangeView: View {
         }
     }
 
-    // MARK: 1. Adım: Kullanıcı Arama Görünümü
     private var searchStepView: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Creator account")
@@ -679,7 +738,6 @@ struct ExchangeView: View {
         .padding(20)
     }
 
-    // MARK: 2. Adım: Bakiye (Miktar) Girme Görünümü
     private var amountStepView: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
@@ -731,7 +789,7 @@ struct ExchangeView: View {
                         }
                     }
                 Spacer()
-                Text("Max: \(availableCoins)")
+                Text("Max: \(coinFormatter.string(from: NSNumber(value: availableCoins)) ?? "")")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.brandAccent)
                     .onTapGesture {
@@ -743,7 +801,7 @@ struct ExchangeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
             if amountValue > 0 {
-                Text("\(amountValue) coin ($\(String(format: "%.2f", exchangeValue)))")
+                Text("\(coinFormatter.string(from: NSNumber(value: amountValue)) ?? "") coin ($\(String(format: "%.2f", exchangeValue)))")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -785,11 +843,9 @@ struct ExchangeView: View {
         .padding(20)
     }
 
-    // Alt kısma sabitlenmiş Buton
     private var reviewExchangeButton: some View {
         Button {
             guard amountValue > 0, amountValue <= availableCoins else { return }
-            // İşlemi onaylarken klavyeyi kapat
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -830,7 +886,7 @@ struct ExchangeView: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 6) {
                     TikTokCoinIcon(size: 14)
-                    Text("\(amountValue) coins")
+                    Text("\(coinFormatter.string(from: NSNumber(value: amountValue)) ?? "") coins")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -857,16 +913,24 @@ struct ExchangeView: View {
 
 // MARK: - Settings Screen
 struct SettingsView: View {
-    @Binding var balance: Double
-    @Binding var coins: Int
+    @Binding var estimatedBalanceUSD: Double
+    @Binding var coinBalance: Int
     @Binding var rewardsReceived: Double
+    @Binding var liveCoins: Int
+    @Binding var liveRewardsUSD: Double
+    @Binding var myCoins: Int
+    @Binding var myBalanceUSD: Double
     @Binding var prefersDarkMode: Bool
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var balanceText: String = ""
-    @State private var coinsText: String = ""
-    @State private var rewardsText: String = ""
+    @State private var estimatedBalanceText: String = ""
+    @State private var coinBalanceText: String = ""
+    @State private var rewardsReceivedText: String = ""
+    @State private var liveCoinsText: String = ""
+    @State private var liveRewardsText: String = ""
+    @State private var myCoinsText: String = ""
+    @State private var myBalanceText: String = ""
 
     var body: some View {
         NavigationStack {
@@ -878,33 +942,56 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                 }
-
-                Section("Balance") {
+                
+                Section("Top Balance Section") {
                     HStack {
-                        Text("USD")
+                        Text("Est. Balance (USD)")
                             .foregroundStyle(.secondary)
-                        TextField("0.00", text: $balanceText)
+                        Spacer()
+                        TextField("0.00", text: $estimatedBalanceText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .foregroundStyle(.primary)
+                    }
+                    TextField("Coin Balance", text: $coinBalanceText)
+                        .keyboardType(.numberPad)
+                }
+                
+                Section("Transactions Card") {
+                    HStack {
+                        Text("Rewards Received")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        TextField("0.00", text: $rewardsReceivedText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
 
-                Section("Coins") {
-                    TextField("0", text: $coinsText)
+                Section("LIVE Rewards") {
+                    TextField("Coins", text: $liveCoinsText)
                         .keyboardType(.numberPad)
-                        .foregroundStyle(.primary)
-                }
-
-                Section("Rewards") {
+                    
                     HStack {
-                        Text("Rewards received")
+                        Text("USD")
                             .foregroundStyle(.secondary)
                         Spacer()
-                        TextField("0.00", text: $rewardsText)
+                        TextField("0.00", text: $liveRewardsText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .foregroundStyle(.primary)
+                    }
+                }
+
+                Section("My Balance") {
+                    TextField("Coins", text: $myCoinsText)
+                        .keyboardType(.numberPad)
+                    
+                    HStack {
+                        Text("USD")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        TextField("0.00", text: $myBalanceText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
             }
@@ -916,18 +1003,26 @@ struct SettingsView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        balance = Double(balanceText) ?? balance
-                        coins = Int(coinsText) ?? coins
-                        rewardsReceived = Double(rewardsText) ?? rewardsReceived
+                        estimatedBalanceUSD = Double(estimatedBalanceText) ?? estimatedBalanceUSD
+                        coinBalance = Int(coinBalanceText) ?? coinBalance
+                        rewardsReceived = Double(rewardsReceivedText) ?? rewardsReceived
+                        liveCoins = Int(liveCoinsText) ?? liveCoins
+                        liveRewardsUSD = Double(liveRewardsText) ?? liveRewardsUSD
+                        myCoins = Int(myCoinsText) ?? myCoins
+                        myBalanceUSD = Double(myBalanceText) ?? myBalanceUSD
                         dismiss()
                     }
                     .fontWeight(.semibold)
                 }
             }
             .onAppear {
-                balanceText = String(format: "%.2f", balance)
-                coinsText = String(coins)
-                rewardsText = String(format: "%.2f", rewardsReceived)
+                estimatedBalanceText = String(format: "%.2f", estimatedBalanceUSD)
+                coinBalanceText = String(coinBalance)
+                rewardsReceivedText = String(format: "%.2f", rewardsReceived)
+                liveCoinsText = String(liveCoins)
+                liveRewardsText = String(format: "%.2f", liveRewardsUSD)
+                myCoinsText = String(myCoins)
+                myBalanceText = String(format: "%.2f", myBalanceUSD)
             }
         }
         .tint(Color.brandAccent)
