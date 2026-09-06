@@ -545,7 +545,7 @@ struct ExchangeView: View {
                             .keyboardType(.numberPad)
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(.primary)
-                            .onChange(of: amountText) { _, newValue in
+                            .onChange(of: amountText) { newValue in
                                 let digitsOnly = newValue.filter(\.isNumber)
                                 if let val = Int(digitsOnly), val > availableCoins {
                                     amountText = "\(availableCoins)"
